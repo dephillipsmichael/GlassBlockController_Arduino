@@ -8,35 +8,44 @@
 // Here is a beautiful ASCII art rendering of the design:
 //
 //  Overhead:
-//       _
-//      | |
-// LEFT | |_________
+//       _          |
+//      | | BAR TOP |    
+// LEFT | |_________|
 //      |___________|
 //          FRONT
 //
+
 // The LED matrix is 70 LEDs wide by 5 LEDs high.
 // The first LED is in the bottom right corner,
 // and they are connected in this flow pattern.
 //
 //     349 <... 282 < 281 < 280
-//                          |
-//                          .
-//                          |
+//                           |
+//                           .
+//                           |
 //     210 > 211 > 212 >... 279
 //     |
 //     .
 //     |
 //     209 <... 142 < 141 < 140
-//                         |
-//                         .
-//                         |
-//     70 > 71 > 72 >... 139
+//                           |
+//                           .
+//                           |
+//     70 > 71 > 72 >...   139
 //     |
 //     .
 //     |
-//     69 <... 3 < 2 < 1 < 0
+//     69 <... 3 < 2 < 1  <  0
 //
 //
+
+#include <FastLED.h>
+
+#define DATA_PIN    5
+#define LED_TYPE    WS2812B
+#define COLOR_ORDER GRB
+#define NUM_LEDS    350
+CRGB leds[NUM_LEDS];
 
 // LEDs per a row
 const uint16_t ledsPerRow = 70;
@@ -55,10 +64,51 @@ const uint8_t ledsPerBlock[blocksPerRow] = { 5, 6, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6 
 const uint8_t frontPlaneBlocksPerRow = 9;
 const uint8_t sidePlaneBlocksPerRow = 3;
 
-const uint8_t blockSizeInInches = 8; // About 8 inches is the size of each block
+// About 8x8 inches by 3.25 inches thick is the size of each glass block
+const uint8_t blockSizeInInches = 8; 
 
-// Used to communicate to to_led_idx_set function caller about unused array result index
+// The LED index ranges - see comments in class header
+// These are the constants to iterate oer leds a row at a time
+// in the same direction.  Whereas if you iterate normally,
+// the animations would snake like in the class header wiring.
+// When running this code:
+// for (int i = 0; i < 70; i++) {     // Bottom row of glass blocks
+// for (int i = 139; i >= 70; i--) { 
+// for (int i = 140; i < 210; i++) {
+// for (int i = 279; i >= 210; i--) {
+// for (int i = 280; i < 350; i++) {  // Top row of glass blocks
+const uint8_t LED_ROW_INDEX_COUNT = 3;
+const uint8_t LED_ROW_INDEX_SIZE = LED_ROW_INDEX_COUNT * blocksRowCount;
+const int ledRowIndexes[] = { 0, 70, 1, 139, 70, -1, 140, 210, 1, 279, 210, -1, 280, 350, 1 };
+
+// The current global brightness, always < MAX_BRIGHTNESS
+uint8_t globalBrightness = 100;
+void setGlobalBrightness(uint8_t brightness) {
+  globalBrightness = brightness;
+  FastLED.setBrightness(globalBrightnessScaled());
+}
+
+// This is a limiter to not draw too much power from the system
+#define MAX_BRIGHTNESS 200
+
+// Used to communicate to to_led_idx_set function caller not to use array index
 const int IGNORE_LED = -1;
+
+int globalBrightnessScaled() {
+  return ((float)globalBrightness / 255.0) * MAX_BRIGHTNESS;
+}
+
+// Sets up the data pins for controlling the LEDs
+void setupFastLed() {
+  // tell FastLED about the LED strip configuration
+  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS);
+
+  // Set master brightness control
+  FastLED.setBrightness(globalBrightnessScaled());
+  
+  FastLED.clear();
+  FastLED.show(); 
+}
 
 // Each glass block has 5-6 LEDs embedded in them
 // When you specify a glass block to light up, 
@@ -106,4 +156,19 @@ uint16_t to_led_idx(uint16_t led_row, uint16_t led_col) {
     result = (ledCount) - (((led_row + 1) * ledsPerRow) - led_col);
   }
   return result;
+}
+
+void FastLED_FillSolid(byte r, byte g, byte b) {
+  fill_solid(leds, NUM_LEDS, CRGB(r, g, b));
+}
+
+// Sets an LED index to a hue val at full saturation, and global brightness
+void FastLED_SetHue(uint8_t ledIdx, uint8_t hue) {
+  leds[ledIdx] = CHSV(hue, 255, globalBrightnessScaled());
+}
+
+// Sets an LED index to a hue val at full saturation, and global brightness
+void FastLED_SetRGB(uint8_t ledIdx, uint8_t r, uint8_t g, uint8_t b) {
+  FastLED.setBrightness(globalBrightnessScaled());
+  leds[ledIdx] = CRGB(r, g, b);
 }
