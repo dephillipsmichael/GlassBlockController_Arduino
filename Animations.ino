@@ -20,8 +20,11 @@ float rainbowAnimHue = 0.0;
 float rainbowAnimHueSpeed = 2.0; 
 
 // The current hue value for the rainbow per row animation
-// Another good starting one is { 30.0, 36.0, 42.0, 36.0, 30.0 };
-float rainbowRowAnimHue[] = { 0.0, 50.0, 100.0, 150.0, 200.0 };
+// Other good starting ones are is float 
+// float rainbowRowAnimHue[] = { 30.0, 36.0, 42.0, 36.0, 30.0 };
+// float rainbowRowAnimHue[] = { 30.0, 36.0, 42.0, 48.0, 54.0 };
+float rainbowRowAnimHue[] = { 30.0, 42.0, 54.0, 66.0, 78.0 };
+// float rainbowRowAnimHue[] = { 0.0, 50.0, 100.0, 150.0, 200.0 };
 float rainbowRowAnimHueSpeed[] = { 2.0, 2.0, 2.0, 2.0, 2.0 };
 
 CRGB colorNautical = CRGB(0, 255, 198);
@@ -35,12 +38,15 @@ byte animationAlpha = 1;
 // The average Lo
 int* avgLowMidHigh = new int[3];
 
-byte ledledAnimationVal = 0;
+byte ledAnimationVal = 0;
+void setLedAnimationPattern(byte animationIdx) {
+  ledAnimationVal = animationIdx;
+}
 
 void animationLoop() {
-  if (ledledAnimationVal == ANIMATION_RAINBOW) {
+  if (ledAnimationVal == ANIMATION_RAINBOW) {
     fastLedRainbow();
-  } else if (ledledAnimationVal == ANIMATION_RAINBOW_ROW) {
+  } else if (ledAnimationVal == ANIMATION_RAINBOW_ROW) {
     rainbowRow();
   }   
 }
@@ -53,7 +59,7 @@ void processArgb(byte alpha, byte r, byte g, byte b) {
      rainbowGreen == g &&
      rainbowBlue == b) {
 
-    ledledAnimationVal = ANIMATION_RAINBOW;        
+    ledAnimationVal = ANIMATION_RAINBOW;        
     return;      
   }
 
@@ -62,7 +68,7 @@ void processArgb(byte alpha, byte r, byte g, byte b) {
      rainbowRowGreen == g &&
      rainbowRowBlue == b) {
 
-    ledledAnimationVal = ANIMATION_RAINBOW_ROW;        
+    ledAnimationVal = ANIMATION_RAINBOW_ROW;        
     return;      
   }
 
@@ -84,7 +90,7 @@ void processArgb(byte alpha, byte r, byte g, byte b) {
       return;      
   }
 
-  ledledAnimationVal = ANIMATION_OFF;
+  ledAnimationVal = ANIMATION_OFF;
   
   FastLED_FillSolid(r, g, b);
   FastLED.show();
@@ -172,22 +178,20 @@ void rainbowRow() {
   // Starts at the bottom row and end on the top row
   // TODO: mdephillips 12/20/20 move this to a function pointer to remove dupe code
   int rowIdx = 0;
-  for (int i = 0; i < LED_ROW_INDEX_SIZE; i+=LED_ROW_INDEX_COUNT) {
+  for (int i = 0; i < LED_ROW_INDEX_SIZE; i += LED_ROW_INDEX_COUNT) {
     rowIdx = (i / LED_ROW_INDEX_COUNT);
     if (ledRowIndexes[i+2] < 0) {
-      for (int led = ledRowIndexes[i]; led >= ledRowIndexes[i+1]; led+=ledRowIndexes[i+2]) {
+      for (int ledIdx = ledRowIndexes[i]; ledIdx >= ledRowIndexes[i+1]; ledIdx += ledRowIndexes[i+2]) {
         iteratorHues[rowIdx] += rainbowRowAnimHueSpeed[rowIdx];
-        FastLED_SetHue(led, iteratorHues[rowIdx]);
+        FastLED_SetHue(ledIdx, (byte)iteratorHues[rowIdx]);
       }
     } else {
-      for (int led = ledRowIndexes[i]; led < ledRowIndexes[i+1]; led+=ledRowIndexes[i+2]) {
+      for (int ledIdx = ledRowIndexes[i]; ledIdx < ledRowIndexes[i+1]; ledIdx += ledRowIndexes[i+2]) {
         iteratorHues[rowIdx] += rainbowRowAnimHueSpeed[rowIdx];
-        FastLED_SetHue(led, iteratorHues[rowIdx]);
+        FastLED_SetHue(ledIdx, (byte)iteratorHues[rowIdx]);
       }
     }
-  }
-
-  //
+  }  
 
   // send the 'leds' array out to the actual LED strip
   FastLED.show(); 

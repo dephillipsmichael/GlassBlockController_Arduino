@@ -163,12 +163,12 @@ void FastLED_FillSolid(byte r, byte g, byte b) {
 }
 
 // Sets an LED index to a hue val at full saturation, and global brightness
-void FastLED_SetHue(uint8_t ledIdx, uint8_t hue) {
+void FastLED_SetHue(int ledIdx, uint8_t hue) {
   leds[ledIdx] = CHSV(hue, 255, globalBrightnessScaled());
 }
 
 // Sets an LED index to a hue val at full saturation, and global brightness
-void FastLED_SetRGB(uint8_t ledIdx, uint8_t r, uint8_t g, uint8_t b) {
+void FastLED_SetRGB(int ledIdx, uint8_t r, uint8_t g, uint8_t b) {
   FastLED.setBrightness(globalBrightnessScaled());
   leds[ledIdx] = CRGB(r, g, b);
 }

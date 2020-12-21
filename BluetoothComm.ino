@@ -28,8 +28,6 @@ BLECharacteristic equalizerLongChar =  BLECharacteristic("6e400005-b5a3-f393-e0a
 void blePeripheralConnectHandler(BLEDevice central);
 void blePeripheralDisconnectHandler(BLEDevice central);
 
-byte functionVal = ANIMATION_OFF;
-
 // Buffer to read ARGB bytes from BLE characteristic
 byte* argb = new byte[4];
 int ALPHA_IDX = 0, RED_IDX = 1, GREEN_IDX = 2, BLUE_IDX = 3;
@@ -87,13 +85,13 @@ void loopBluetooth() {
   }
 
   if (lowMidHighChar.written()) {
-    functionVal = ANIMATION_OFF;
+    setLedAnimationPattern(ANIMATION_OFF);
     lowMidHighChar.readValue(lowMidHigh, 3);    
     processLowMidHigh(lowMidHigh[LOW_IDX], lowMidHigh[MID_IDX], lowMidHigh[HIGH_IDX]);
   }
 
   if (equalizerLongChar.written()) {
-    functionVal = ANIMATION_OFF;
+    setLedAnimationPattern(ANIMATION_OFF);
     // Equalizer vals need bitwise operations to unpack
     equalizerLongChar.readValue(unpackedEqVals, 9);    
     showUnpackedEqValues(unpackedEqVals);
