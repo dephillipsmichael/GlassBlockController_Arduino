@@ -120,6 +120,15 @@ void setupFastLed() {
 // param: block_col column index for glass block
 // param: result pre-allocated array (needs size of 6) where the results will be stored
 void to_led_idx_set(uint16_t block_row, uint16_t block_col, int* result) {
+
+  // Bounds check bad param data
+  if (block_row >= blocksRowCount || block_col >= blocksPerRow) {
+    for (int i = 0; i < maxLedsPerBlock; i++) {
+      result[i] = IGNORE_LED;
+    }
+    return result; 
+  }
+  
   // Compute the column of the left-most pixel in the block
   // The first 3 blocks have LED count of 5, 6, and 5, but then the rest are 6.
   uint8_t ledCol = 0;
@@ -171,4 +180,36 @@ void FastLED_SetHue(int ledIdx, uint8_t hue) {
 void FastLED_SetRGB(int ledIdx, uint8_t r, uint8_t g, uint8_t b) {
   FastLED.setBrightness(globalBrightnessScaled());
   leds[ledIdx] = CRGB(r, g, b);
+}
+
+
+// Glass block buffer
+int* blockLeds = new int[maxLedsPerBlock];
+void FastLED_lightBlockHue(uint8_t row, uint8_t col, uint8_t hue) {
+  to_led_idx_set(row, col, blockLeds);
+  for (int led = 0; led < maxLedsPerBlock; led++) {
+    if (blockLeds[led] != IGNORE_LED) {  // Black out LED in block
+      leds[blockLeds[led]] = CHSV(hue, 255, globalBrightnessScaled());
+    }
+  }
+}
+
+// Glass block buffer
+void FastLED_lightBlockHueSat(uint8_t row, uint8_t col, uint8_t hue, uint8_t sat) {
+  to_led_idx_set(row, col, blockLeds);
+  for (int led = 0; led < maxLedsPerBlock; led++) {
+    if (blockLeds[led] != IGNORE_LED) {  // Black out LED in block
+      leds[blockLeds[led]] = CHSV(hue, sat, globalBrightnessScaled());
+    }
+  }
+}
+
+// Glass block buffer
+void FastLED_lightBlockRGB(uint8_t row, uint8_t col, uint8_t red, uint8_t green, uint8_t blue) {
+  to_led_idx_set(row, col, blockLeds);
+  for (int led = 0; led < maxLedsPerBlock; led++) {
+    if (blockLeds[led] != IGNORE_LED) {  // Black out LED in block
+      leds[blockLeds[led]] = CRGB(red, green, blue);
+    }
+  }
 }
