@@ -8,6 +8,7 @@
 #define ANIMATION_OFF 0
 #define ANIMATION_RAINBOW 1
 #define ANIMATION_RAINBOW_ROW 2
+#define ANIMATION_BPM_TEST 6
 
 byte rainbowRed = 33;
 byte rainbowGreen = 99;
@@ -20,6 +21,9 @@ byte rainbowRowBlue = 134;
 // The current hue value for the rainbow animation
 float rainbowAnimHue = 0.0;
 float rainbowAnimHueSpeed = 2.0; 
+boolean reverseDirection = false;
+byte hsvBrightness = 255;
+byte bpmAnimation = 0;
 
 // The current hue value for the rainbow per row animation
 // Other good starting ones are is float 
@@ -41,6 +45,14 @@ CRGB colorWhite = CRGB(255, 255, 255);
 CRGB colorLavender = CRGB(158, 0, 255);
 CRGB colorYellow = CRGB(255, 194, 9);
 
+// Stores the current BPM and start time of the tempo 
+unsigned long bpmStartTime = 0; 
+uint8_t bpm = 0;
+int bpmOffset = 0;
+float bpmStartAnimSpeed = 0.0;
+int bpmFrameIdx = 0;
+
+// The command for starting an animation
 byte animationAlpha = 1;
 
 // The average Lo
@@ -56,7 +68,9 @@ void animationLoop() {
     fastLedRainbow();
   } else if (ledAnimationVal == ANIMATION_RAINBOW_ROW) {
     rainbowRow();
-  }   
+  } else if (ledAnimationVal == ANIMATION_BPM_TEST) {
+    doBpmAnimation();
+  }  
 }
 
 // Process ARGB animation command
@@ -106,8 +120,9 @@ void processArgb(byte alpha, byte r, byte g, byte b) {
   // Rainbow Row Speeds
   if (1 == alpha && 1 == r && (g >= 0 && g < 2)) {   
     if (g == 0) {
+      rainbowAnimHueSpeed = (float)((uint8_t)b) * 0.25;
       for (int i = 0; i < blocksRowCount; i++) {
-        rainbowRowAnimHueSpeed[i] = (float)((uint8_t)b) * 0.25;  
+        rainbowRowAnimHueSpeed[i] = rainbowAnimHueSpeed;
       }  
        
       #ifdef ANIMATION_DEBUG
@@ -226,20 +241,48 @@ void showUnpackedEqValues(byte unpackedEqVals[]) {
 }
 
 void fastLedRainbow () {
-  rainbowAnimHue += rainbowAnimHueSpeed;
-  if (rainbowAnimHue > 255) {
-    rainbowAnimHue = rainbowAnimHue - 255;
-  }
+  nextRainbowFrame();
+
   // FastLED's built-in rainbow generator
-  fill_rainbow( leds, NUM_LEDS, (byte)rainbowAnimHue, 7);
+  fill_rainbow(leds, NUM_LEDS, (byte)rainbowAnimHue, 7);
   
   // send the 'leds' array out to the actual LED strip
   FastLED.show(); 
 }
 
+void nextRainbowFrame() {
+  if (reverseDirection) {
+    rainbowAnimHue -= rainbowAnimHueSpeed;
+  } else {
+    rainbowAnimHue += rainbowAnimHueSpeed; 
+  }  
+  if (rainbowAnimHue > 255) {
+    rainbowAnimHue = rainbowAnimHue - 255;
+  } else if (rainbowAnimHue < 0) {
+    rainbowAnimHue = rainbowAnimHue + 255;
+  }
+
+  // Incrament all the row's hue values
+  for (int i = 0; i < blocksRowCount; i++) {
+    if (reverseDirection) {
+      rainbowRowAnimHue[i] -= rainbowRowAnimHueSpeed[i];
+    } else {
+      rainbowRowAnimHue[i] += rainbowRowAnimHueSpeed[i];
+    }  
+    
+    if (rainbowRowAnimHue[i] > 255) {
+      rainbowRowAnimHue[i] = rainbowRowAnimHue[i] - 255;
+    } else if (rainbowRowAnimHue[i] < 0) {
+      rainbowRowAnimHue[i] = rainbowRowAnimHue[i] + 255;
+    }
+  }
+}
+
 // Used by function rainbowRow
 float iteratorHues[] = { 0.0, 0.0, 0.0, 0.0, 0.0 };
 void rainbowRow() {
+
+  nextRainbowFrame();
 
   if (currentPattern == rainbowPatternSine ||
     currentPattern == rainbowPatternSineBlock) {
@@ -252,12 +295,7 @@ void rainbowRow() {
     return;
   }
 
-  // Incrament all the row's hue values
   for (int i = 0; i < blocksRowCount; i++) {
-    rainbowRowAnimHue[i] += rainbowRowAnimHueSpeed[i];
-    if (rainbowRowAnimHue[i] > 255) {
-      rainbowRowAnimHue[i] = rainbowRowAnimHue[i] - 255;
-    }
     // Copy over current hue values to iterator
     iteratorHues[i] = rainbowRowAnimHue[i];
   }
@@ -271,12 +309,12 @@ void rainbowRow() {
     if (ledRowIndexes[i+2] < 0) {
       for (int ledIdx = ledRowIndexes[i]; ledIdx >= ledRowIndexes[i+1]; ledIdx += ledRowIndexes[i+2]) {
         iteratorHues[rowIdx] += rainbowRowAnimHueSpeed[rowIdx];
-        FastLED_SetHue(ledIdx, (byte)iteratorHues[rowIdx]);
+        FastLED_SetHueVal(ledIdx, (byte)iteratorHues[rowIdx], hsValueScaled());
       }
     } else {
       for (int ledIdx = ledRowIndexes[i]; ledIdx < ledRowIndexes[i+1]; ledIdx += ledRowIndexes[i+2]) {
         iteratorHues[rowIdx] += rainbowRowAnimHueSpeed[rowIdx];
-        FastLED_SetHue(ledIdx, (byte)iteratorHues[rowIdx]);
+        FastLED_SetHueVal(ledIdx, (byte)iteratorHues[rowIdx], hsValueScaled());
       }
     }
   }  
@@ -288,11 +326,6 @@ void rainbowRow() {
 void rainbowCircle() {
   // The Rainbow circle patterns starts color in middle of wall and goes outwards equally
   // See Hypno-Toad eyes for reference
-  // Incrament the starting hue
-  rainbowAnimHue += rainbowRowAnimHueSpeed[0];
-  if (rainbowAnimHue > 255) {
-    rainbowAnimHue = rainbowAnimHue - 255;
-  }
 
   float hue = rainbowAnimHue + 128;
   int circleDiameter = 1;
@@ -396,12 +429,6 @@ void rainbowCircle() {
 void rainbowSine() {
   // The Rainbow Sine pattern moves hue by up the rows, then down the next row, etc.
 
-  // Incrament the starting hue
-  rainbowAnimHue += rainbowRowAnimHueSpeed[0];
-  if (rainbowAnimHue > 255) {
-    rainbowAnimHue = rainbowAnimHue - 255;
-  }
-
   float hue = rainbowAnimHue;
   float sat = 255;
   int colLoops = ledsPerRow;
@@ -425,7 +452,7 @@ void rainbowSine() {
           }
           FastLED_lightBlockHueSat(row, col, hue, sat);
         } else {
-          FastLED_SetHue(to_led_idx(row, col), hue);
+          FastLED_SetHueVal(to_led_idx(row, col), hue, hsValueScaled());
         }
       }  
     } else { // Odd rows flow down
@@ -441,9 +468,9 @@ void rainbowSine() {
               (hue >= 200 && hue < 210)) {
             sat = 200;
           }
-          FastLED_lightBlockHueSat(row, col, hue, sat);
+          FastLED_lightBlockHueSatVal(row, col, hue, sat, hsValueScaled());
         } else {
-          FastLED_SetHue(to_led_idx(row, col), hue);
+          FastLED_SetHueVal(to_led_idx(row, col), hue, hsValueScaled());
         }
       }  
     }
@@ -486,4 +513,145 @@ void processLowMidHigh(byte low, byte mid, byte high) {
   }
   
   FastLED.show();
+}
+
+const unsigned long perMinuteMillis = 60000;
+unsigned long nextBeatMillis = 0;
+float millisBetweenBeats = 0.0;
+
+void doBpmAnimation() {
+
+  // Negative number means beat has past
+  long millisToNextBeat = nextBeatMillis - millis();
+  
+  int beatsSoFar = round((float)(millis() - bpmStartTime) / (float)millisBetweenBeats);
+  int currentBeat_4_4 = (beatsSoFar % 4);
+  if (currentBeat_4_4 == 3) {
+    // Exponentially slow speed and then kick it back up on the start of the measure
+    if (!reverseDirection) {
+      rainbowAnimHueSpeed -= 0.25;
+      for (int i = 0; i < 5; i++) {
+        rainbowRowAnimHueSpeed[i] -= 0.25; 
+      }
+    } else {
+      rainbowAnimHueSpeed += 0.25;
+      for (int i = 0; i < 5; i++) {
+        rainbowRowAnimHueSpeed[i] += 0.25; 
+      }
+    }
+    
+  } else {
+    rainbowAnimHueSpeed = bpmStartAnimSpeed;
+    for (int i = 0; i < 5; i++) {
+      rainbowRowAnimHueSpeed[i] = bpmStartAnimSpeed; 
+    }    
+  }
+
+  // Brightness flash
+  //hsvBrightness = max(0, min(((1.0 - ((float)(200.0 - abs(millisToNextBeat)) / 200.0)) * 100) + 155, 255)); 
+
+//  Serial.print(millis());
+//  Serial.print(" ");
+//  Serial.println(millisToNextBeat);
+  FastLED_FillSolid(0, 0, 0);
+  // -12 ms in the past, 12 is in the future
+  if (millisToNextBeat > -20 && millisToNextBeat < 20) { 
+    #ifdef ANIMATION_DEBUG
+    //Serial.println("Show beat");
+  #endif    
+    showBeat(millisToNextBeat + 8, currentBeat_4_4);
+    recalculateNextBeat();
+  } else if (millisToNextBeat < -100) { 
+    #ifdef ANIMATION_DEBUG
+      //Serial.println("Missed beat");
+    #endif
+    // 100 ms in the past, we missed the beat
+//  #ifdef ANIMATION_DEBUG
+//    Serial.println("Missed beat");
+//  #endif
+    recalculateNextBeat();
+  }
+
+  // Do the rest of the animation
+  if (bpmAnimation == ANIMATION_RAINBOW) {
+    fastLedRainbow();
+  } else if (bpmAnimation == ANIMATION_RAINBOW_ROW) {
+    rainbowRow();
+  } 
+}
+
+void showBeat(int delayDuration, int idx) {
+
+  // Switch animation directions
+  //reverseDirection = !reverseDirection;
+
+  // Simple flash
+//  if (idx == 0) {
+//    FastLED_FillSolid(255, 0, 0);
+//  } else if (idx == 1) {
+//    FastLED_FillSolid(0, 255, 0);
+//  } else if (idx == 2) {
+//    FastLED_FillSolid(255, 0, 255);
+//  } else {
+//    FastLED_FillSolid(0, 255, 255);
+//  } 
+//  FastLED.show();
+}
+
+uint8_t hsValueScaled() {
+  // Only BPM will control hsv value overhead
+  if (ledAnimationVal != ANIMATION_BPM_TEST) {
+    return 255; // full brightness
+  }
+  return hsvBrightness;
+}
+
+void processBPM(uint8_t newBpm) {
+
+  #ifdef ANIMATION_DEBUG
+    Serial.print("BPM ");
+    Serial.println(newBpm);
+  #endif
+  
+  bpmStartTime = millis();
+  bpm = newBpm;  
+  recalculateNextBeat();
+
+  // Make sure we are showing the BPM animation
+  if (ledAnimationVal != ANIMATION_BPM_TEST) {
+    bpmAnimation = ledAnimationVal;  
+    bpmStartAnimSpeed = rainbowRowAnimHueSpeed[0];
+  }
+  ledAnimationVal = ANIMATION_BPM_TEST;  
+}
+
+void processBPMTimeOffset(uint8_t offset) {
+
+  #ifdef ANIMATION_DEBUG
+    Serial.print("BPM Offset ");
+    Serial.println(offset);
+  #endif
+  
+  bpmOffset = offset;
+  recalculateNextBeat();  
+  ledAnimationVal = ANIMATION_BPM_TEST;
+}
+
+void recalculateNextBeat() {
+  // Get the number of milliseconds between beats 
+  millisBetweenBeats = (float)perMinuteMillis / (float)bpm;
+  float beatsFromStart = (float)(millis() - bpmStartTime - bpmOffset) / millisBetweenBeats;
+  // Calculate next beat
+  nextBeatMillis = bpmStartTime + round((millisBetweenBeats) * (float)(beatsFromStart + 1.0)); 
+
+//  #ifdef ANIMATION_DEBUG
+//     Serial.print("Now ");
+//    Serial.print(millis());
+//    Serial.print("Millis between beats ");
+//    Serial.print(millisBetweenBeats);
+//    Serial.print(" beatsFromStart ");
+//    Serial.println(beatsFromStart);
+//    Serial.print(" nextBeatMillis ");
+//    Serial.println(nextBeatMillis);
+//  #endif
 }

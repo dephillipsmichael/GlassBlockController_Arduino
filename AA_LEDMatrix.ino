@@ -47,6 +47,9 @@
 #define NUM_LEDS    350
 CRGB leds[NUM_LEDS];
 
+// This is a limiter to not draw too much power from the system
+#define MAX_BRIGHTNESS 200
+
 // LEDs per a row
 const uint16_t ledsPerRow = 70;
 // Number of rows in the wall
@@ -87,9 +90,6 @@ void setGlobalBrightness(uint8_t brightness) {
   globalBrightness = brightness;
   FastLED.setBrightness(globalBrightnessScaled());
 }
-
-// This is a limiter to not draw too much power from the system
-#define MAX_BRIGHTNESS 200
 
 // Used to communicate to to_led_idx_set function caller not to use array index
 const int IGNORE_LED = -1;
@@ -176,9 +176,12 @@ void FastLED_SetHue(int ledIdx, uint8_t hue) {
   leds[ledIdx] = CHSV(hue, 255, globalBrightnessScaled());
 }
 
+void FastLED_SetHueVal(int ledIdx, uint8_t hue, uint8_t val) {  
+  leds[ledIdx] = CHSV(hue, 255, val);
+}
+
 // Sets an LED index to a hue val at full saturation, and global brightness
 void FastLED_SetRGB(int ledIdx, uint8_t r, uint8_t g, uint8_t b) {
-  FastLED.setBrightness(globalBrightnessScaled());
   leds[ledIdx] = CRGB(r, g, b);
 }
 
@@ -189,7 +192,16 @@ void FastLED_lightBlockHue(uint8_t row, uint8_t col, uint8_t hue) {
   to_led_idx_set(row, col, blockLeds);
   for (int led = 0; led < maxLedsPerBlock; led++) {
     if (blockLeds[led] != IGNORE_LED) {  // Black out LED in block
-      leds[blockLeds[led]] = CHSV(hue, 255, globalBrightnessScaled());
+      leds[blockLeds[led]] = CHSV(hue, 255, 255);
+    }
+  }
+}
+
+void FastLED_lightBlockHueVal(uint8_t row, uint8_t col, uint8_t hue, uint8_t val) {
+  to_led_idx_set(row, col, blockLeds);
+  for (int led = 0; led < maxLedsPerBlock; led++) {
+    if (blockLeds[led] != IGNORE_LED) {  // Black out LED in block
+      leds[blockLeds[led]] = CHSV(hue, 255, val);
     }
   }
 }
@@ -199,12 +211,20 @@ void FastLED_lightBlockHueSat(uint8_t row, uint8_t col, uint8_t hue, uint8_t sat
   to_led_idx_set(row, col, blockLeds);
   for (int led = 0; led < maxLedsPerBlock; led++) {
     if (blockLeds[led] != IGNORE_LED) {  // Black out LED in block
-      leds[blockLeds[led]] = CHSV(hue, sat, globalBrightnessScaled());
+      leds[blockLeds[led]] = CHSV(hue, sat, 255);
     }
   }
 }
 
-// Glass block buffer
+void FastLED_lightBlockHueSatVal(uint8_t row, uint8_t col, uint8_t hue, uint8_t sat, uint8_t val) {
+  to_led_idx_set(row, col, blockLeds);
+  for (int led = 0; led < maxLedsPerBlock; led++) {
+    if (blockLeds[led] != IGNORE_LED) {  // Black out LED in block
+      leds[blockLeds[led]] = CHSV(hue, sat, val);
+    }
+  }
+}
+
 void FastLED_lightBlockRGB(uint8_t row, uint8_t col, uint8_t red, uint8_t green, uint8_t blue) {
   to_led_idx_set(row, col, blockLeds);
   for (int led = 0; led < maxLedsPerBlock; led++) {

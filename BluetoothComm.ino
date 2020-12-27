@@ -17,8 +17,8 @@ BLECharacteristic argbChar =  BLECharacteristic("6e400002-b5a3-f393-e0a9-e50e24d
 // Receive updates about when low, mid, or high beats are detected from a device recording sound
 BLECharacteristic lowMidHighChar =  BLECharacteristic("6e400003-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 3);
 
-// Receive updates 9 bands of spectrum analysis, normalized to block row
-BLECharacteristic equalizerChar =  BLECharacteristic("6e400004-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 4);
+// Receive bpm and timing info for animation speed
+BLECharacteristic bpmChar =  BLECharacteristic("6e400004-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 4);
 
 // Receive updates from 9 bands without bitwise shifting to shorten the message
 BLECharacteristic equalizerLongChar =  BLECharacteristic("6e400005-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 9);
@@ -36,8 +36,8 @@ int ALPHA_IDX = 0, RED_IDX = 1, GREEN_IDX = 2, BLUE_IDX = 3;
 byte* lowMidHigh = new byte[3];
 int LOW_IDX = 0, MID_IDX = 1, HIGH_IDX = 2;
 
-// Buffer to read low, mid, high beats from the BLE central
-//byte* eq = new byte[4];
+// Buffer to read bpm info
+byte* bpmVals = new byte[4];
 
 // Buffer to Equalizer 9 freq band intensity values from BLE central
 byte* unpackedEqVals = new byte[9];
@@ -63,7 +63,7 @@ void setupBluetooth() {
   // add the characteristics to the service
   ledService.addCharacteristic(argbChar);
   ledService.addCharacteristic(lowMidHighChar);
-  ledService.addCharacteristic(equalizerChar);
+  ledService.addCharacteristic(bpmChar);
   ledService.addCharacteristic(equalizerLongChar); 
 
   // add the service
@@ -75,7 +75,7 @@ void setupBluetooth() {
   Serial.println("Bluetooth device active, waiting for connections...");
 }
 
-void loopBluetooth() {
+void loopBluetooth() {   
   BLE.poll();
 
   if (argbChar.written()) {
@@ -88,6 +88,16 @@ void loopBluetooth() {
     setLedAnimationPattern(ANIMATION_OFF);
     lowMidHighChar.readValue(lowMidHigh, 3);    
     processLowMidHigh(lowMidHigh[LOW_IDX], lowMidHigh[MID_IDX], lowMidHigh[HIGH_IDX]);
+  }
+
+  if (bpmChar.written()) {    
+    // BPM Info 
+    bpmChar.readValue(bpmVals, 4);   
+    if (bpmVals[0] == 0) {
+      processBPM(bpmVals[3]);    
+    } else if (bpmVals[0] == 1) {
+      processBPMTimeOffset(bpmVals[3]);
+    }    
   }
 
   if (equalizerLongChar.written()) {

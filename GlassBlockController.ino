@@ -15,9 +15,10 @@ void setup() {
   Serial.begin(9600);
   while (!Serial);
 
+  // BluetoothComm Setup
   setupBluetooth();
 
-// 2 second delay for BLE setup recovery
+  // 2 second delay for BLE setup recovery
   delay(2000); 
 
   // Setup the LED
@@ -28,6 +29,8 @@ void setup() {
 }
 
 void loop() {
+  // Check for new BLE messages
   loopBluetooth();
+  // Glass Block LED Matrix Animations
   animationLoop();  
 }
