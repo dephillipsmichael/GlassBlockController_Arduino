@@ -36,7 +36,12 @@
 //     .
 //     |
 //     69 <... 3 < 2 < 1  <  0
-//
+// 
+// The LED flow stay on the same row when they go from 
+// the front plane to left plane, so in the 349-280
+// instance, left plane is LEDs 359-331 and
+// front plane starts around LED 330-280.
+// See function to_led_idx_set for more details.
 //
 
 #include <FastLED.h>
@@ -71,7 +76,7 @@ const uint8_t sidePlaneBlocksPerRow = 3;
 const uint8_t blockSizeInInches = 8; 
 
 // The LED index ranges - see comments in class header
-// These are the constants to iterate oer leds a row at a time
+// These are the constants to iterate over LEDs a row at a time
 // in the same direction.  Whereas if you iterate normally,
 // the animations would snake like in the class header wiring.
 // When running this code:
