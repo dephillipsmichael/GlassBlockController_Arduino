@@ -11,8 +11,6 @@
 #warning "Requires FastLED 3.1 or later; check github for latest code."
 #endif
 
-//#define SPEED_TEST 1
-
 void setup() {
   Serial.begin(9600);
   while (!Serial);
@@ -33,48 +31,11 @@ void setup() {
   processArgb(1, 33, 99, 133);
 }
 
-#ifdef SPEED_TEST 
-  unsigned long bleStrt = micros();
-  unsigned long bleSum = 0;  
-  unsigned long animLoopStr = micros();
-  unsigned long animSum = 0;
-  int speedCount = 0;
-  int animCount = 0;
-#endif
-
 void loop() {
-
-#ifdef SPEED_TEST   
-  bleStrt = micros();
-  speedCount++;
-#endif
-
-  // Check for BLE messages
-  loopBluetooth();  
-
-#ifdef SPEED_TEST 
-  bleSum += (micros() - bleStrt);
-#endif
-
-#ifdef SPEED_TEST 
-  animLoopStr = micros();
-#endif
-
+  
   // Glass Block LED Matrix Animations
   animationLoop();  
 
-#ifdef SPEED_TEST 
-  animSum += (micros() - animLoopStr);
-
-  if (speedCount > 100) {
-    Serial.print("BLE avg = ");
-    Serial.println((float)bleSum/speedCount);
-    bleSum = 0;       
-    Serial.print("ANIM avg = ");
-    Serial.println((float)animSum/speedCount);
-    animSum = 0;  
-    speedCount = 0;
-  }
-#endif
-  
+  // Check for BLE messages
+  loopBluetooth();   
 }
