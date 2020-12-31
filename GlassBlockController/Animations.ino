@@ -3,12 +3,24 @@
 */
 #include <FastLED.h>
 
-#define ANIMATION_DEBUG = 1
+// #define ANIMATION_DEBUG = 1
 
+// Current Animatio selected
 #define ANIMATION_OFF 0
+// ~3.0 ms per Frame
 #define ANIMATION_RAINBOW 1
+// ~8.6 ms per Frame
 #define ANIMATION_RAINBOW_ROW 2
 #define ANIMATION_BPM_TEST 6
+
+// Current pattern within the animation selected
+int currentPattern = 0;
+// ~9.6 ms per frame
+int rainbowPatternSine = 3;
+// ~6.9 ms per frame
+int rainbowPatternSineBlock = 4;
+// ~ 7.7 ms per frame
+int rainbowPatternCircleBlock = 5;
 
 byte rainbowRed = 33;
 byte rainbowGreen = 99;
@@ -32,12 +44,6 @@ float rainbowRowAnimArrow[] = { 30.0, 42.0, 54.0, 42.0, 30.0 };
 float rainbowRowAnimHueLine[] = { 30.0, 42.0, 54.0, 66.0, 78.0 };
 float rainbowRowAnimHue[] = { rainbowRowAnimHueLine[0], rainbowRowAnimHueLine[1], rainbowRowAnimHueLine[2], rainbowRowAnimHueLine[3], rainbowRowAnimHueLine[4] };
 float rainbowRowAnimHueSpeed[] = { 2.0, 2.0, 2.0, 2.0, 2.0 };
-
-// Current pattern
-int currentPattern = 0;
-int rainbowPatternSine = 3;
-int rainbowPatternSineBlock = 4;
-int rainbowPatternCircleBlock = 5;
 
 CRGB colorNautical = CRGB(0, 255, 198);
 CRGB colorRaspberrySorbet = CRGB(255, 0, 127);
@@ -189,8 +195,11 @@ void processArgb(byte alpha, byte r, byte g, byte b) {
 }
 
 // Do animation for 9 frequency band equalizer values
+// When triggered by BLE messaging at 23 MTU, and HIGH power transmission
+// this maxes out at about 60 times a second
+// Which still gives great responsiveness to the human eye to beats.
 void showUnpackedEqValues(byte unpackedEqVals[]) {  
-  
+
   avgLowMidHigh[0] = max(max(unpackedEqVals[0], unpackedEqVals[1]), unpackedEqVals[2]);
   avgLowMidHigh[1] = max(max(unpackedEqVals[3], unpackedEqVals[4]), unpackedEqVals[5]);
   avgLowMidHigh[2] = max(max(unpackedEqVals[6], unpackedEqVals[7]), unpackedEqVals[8]);

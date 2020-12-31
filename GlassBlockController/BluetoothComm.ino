@@ -76,6 +76,11 @@ void setupBluetooth() {
 }
 
 void loopBluetooth() {   
+  // This function on avg takes only
+  // ~31 MICRO seconds to perform
+  // However, if there is a characteristic
+  // to read, like the 9 byte EQ,
+  // This takes ~1000 MICRO secodns to perform.
   BLE.poll();
 
   if (argbChar.written()) {
@@ -103,9 +108,10 @@ void loopBluetooth() {
   if (equalizerLongChar.written()) {
     setLedAnimationPattern(ANIMATION_OFF);
     // Equalizer vals need bitwise operations to unpack
+    // This is a quick operations < 100 MICRO seconds
     equalizerLongChar.readValue(unpackedEqVals, 9);    
     showUnpackedEqValues(unpackedEqVals);
-  }
+  } 
 }
 
 void blePeripheralConnectHandler(BLEDevice central) {
