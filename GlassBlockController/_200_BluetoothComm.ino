@@ -21,7 +21,9 @@ BLECharacteristic lowMidHighChar =  BLECharacteristic("6e400003-b5a3-f393-e0a9-e
 BLECharacteristic bpmChar =  BLECharacteristic("6e400004-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 4);
 
 // Receive updates from 9 bands without bitwise shifting to shorten the message
-BLECharacteristic equalizerLongChar =  BLECharacteristic("6e400005-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 9);
+//BLECharacteristic equalizerLongChar =  BLECharacteristic("6e400005-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 9);
+
+BLECharacteristic beatSequenceChar =  BLECharacteristic("6e400005-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 20);
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
@@ -41,6 +43,9 @@ byte* bpmVals = new byte[4];
 
 // Buffer to Equalizer 9 freq band intensity values from BLE central
 byte* unpackedEqVals = new byte[9];
+
+// Buffer to retrieve the next part of the beat sequence
+byte* beatSequenceVals = new byte[20];
 
 void setupBluetooth() {
   // begin initialization
@@ -64,7 +69,8 @@ void setupBluetooth() {
   ledService.addCharacteristic(argbChar);
   ledService.addCharacteristic(lowMidHighChar);
   ledService.addCharacteristic(bpmChar);
-  ledService.addCharacteristic(equalizerLongChar); 
+  //ledService.addCharacteristic(equalizerLongChar); 
+  ledService.addCharacteristic(beatSequenceChar);   
 
   // add the service
   BLE.addService(ledService);
@@ -75,7 +81,11 @@ void setupBluetooth() {
   Serial.println("Bluetooth device active, waiting for connections...");
 }
 
-void loopBluetooth() {   
+unsigned long now = 0;
+void loopBluetooth() {  
+  
+  now = micros();
+   
   // This function on avg takes only
   // ~31 MICRO seconds to perform
   // However, if there is a characteristic
@@ -95,22 +105,51 @@ void loopBluetooth() {
     processLowMidHigh(lowMidHigh[LOW_IDX], lowMidHigh[MID_IDX], lowMidHigh[HIGH_IDX]);
   }
 
-  if (bpmChar.written()) {    
+  if (bpmChar.written()) {
+    setLedAnimationPattern(ANIMATION_BPM_TEST);
     // BPM Info 
     bpmChar.readValue(bpmVals, 4);   
-    if (bpmVals[0] == 0) {
-      processBPM(bpmVals[3]);    
+    if (bpmVals[0] == 0) {  
+      Serial.println("Set BPM");   
+      Serial.println(bpmVals[3]);    
+      setBpm((uint16_t)bpmVals[3], now);
+      //processBPM(bpmVals[3]);    
     } else if (bpmVals[0] == 1) {
-      processBPMTimeOffset(bpmVals[3]);
+      Serial.println("Set BPM delay");   
+      Serial.println(bpmVals[3]);    
+      setBpmDelay(bpmVals[3]);
+      //processBPMTimeOffset(bpmVals[3]);
     }    
   }
 
-  if (equalizerLongChar.written()) {
-    setLedAnimationPattern(ANIMATION_OFF);
-    // Equalizer vals need bitwise operations to unpack
+//  if (equalizerLongChar.written()) {
+//    setLedAnimationPattern(ANIMATION_OFF);
+//    // Equalizer vals need bitwise operations to unpack
+//    // This is a quick operations < 100 MICRO seconds
+//    equalizerLongChar.readValue(unpackedEqVals, 9);    
+//    showUnpackedEqValues(unpackedEqVals);
+//  } 
+
+  if (beatSequenceChar.written()) {
+    setLedAnimationPattern(ANIMATION_BPM_TEST);
     // This is a quick operations < 100 MICRO seconds
-    equalizerLongChar.readValue(unpackedEqVals, 9);    
-    showUnpackedEqValues(unpackedEqVals);
+    beatSequenceChar.readValue(beatSequenceVals, 20);   
+
+    // Decode and attach to specified animation
+    if (beatSequenceVals[1] == 0) {  
+      decodeAndAppendBeatSequence(beatSequenceVals, 20, getSimpleFadeBeatSequence());           
+    } else if (beatSequenceVals[1] == 1) {  
+      decodeAndAppendBeatSequence(beatSequenceVals, 20, getRainbowBeatSequence());           
+    } else if (beatSequenceVals[1] == 2) {  
+      decodeAndAppendBeatSequence(beatSequenceVals, 20, getBeatBc());
+    }
+  
+    Serial.println("Beat Sequence Recieved");
+    for (int i = 0; i < 20; i++) {
+      Serial.print(beatSequenceVals[i]); 
+      Serial.print(", "); 
+    }    
+    Serial.println("");
   } 
 }
 

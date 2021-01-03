@@ -176,6 +176,10 @@ void FastLED_FillSolid(byte r, byte g, byte b) {
   fill_solid(leds, NUM_LEDS, CRGB(r, g, b));
 }
 
+void FastLED_FillSolidHSV(byte h, byte s, byte v) {
+  fill_solid(leds, NUM_LEDS, CHSV(h, s, v));
+}
+
 // Sets an LED index to a hue val at full saturation, and global brightness
 void FastLED_SetHue(int ledIdx, uint8_t hue) {
   leds[ledIdx] = CHSV(hue, 255, globalBrightnessScaled());

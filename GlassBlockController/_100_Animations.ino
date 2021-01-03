@@ -1,7 +1,17 @@
 /*
   LED animation pattern functions and variables   
 */
+
 #include <FastLED.h>
+
+/**
+ * Animation State basics
+ */
+struct AnimationBasics {
+  int idx = 0;
+  float hue = 0.0;
+  float iterator = 0.0;
+};
 
 // #define ANIMATION_DEBUG = 1
 
@@ -53,7 +63,7 @@ CRGB colorYellow = CRGB(255, 194, 9);
 
 // Stores the current BPM and start time of the tempo 
 unsigned long bpmStartTime = 0; 
-uint8_t bpm = 0;
+uint8_t curBpm = 0;
 int bpmOffset = 0;
 float bpmStartAnimSpeed = 0.0;
 int bpmFrameIdx = 0;
@@ -69,13 +79,13 @@ void setLedAnimationPattern(byte animationIdx) {
   ledAnimationVal = animationIdx;
 }
 
-void animationLoop() {
+void animationLoop(uint16_t beatInMeasure) {
   if (ledAnimationVal == ANIMATION_RAINBOW) {
     fastLedRainbow();
   } else if (ledAnimationVal == ANIMATION_RAINBOW_ROW) {
     rainbowRow();
   } else if (ledAnimationVal == ANIMATION_BPM_TEST) {
-    doBpmAnimation();
+    doBpmAnimation(beatInMeasure);
   }  
 }
 
@@ -528,8 +538,20 @@ const unsigned long perMinuteMillis = 60000;
 unsigned long nextBeatMillis = 0;
 float millisBetweenBeats = 0.0;
 
-void doBpmAnimation() {
+void doBpmAnimation(uint16_t beatInMeasure) {
 
+  anim_BeatCheck(beatInMeasure);
+  
+//  runSimpleFadeAnimation(beatInMeasure);
+//  runRainbowDropAnimation(beatInMeasure);
+  
+  FastLED.show();
+  addFastLEDShowDelay(12500);
+
+  if (true) {
+    return;
+  }
+  
   // Negative number means beat has past
   long millisToNextBeat = nextBeatMillis - millis();
   
@@ -623,7 +645,7 @@ void processBPM(uint8_t newBpm) {
   #endif
   
   bpmStartTime = millis();
-  bpm = newBpm;  
+  curBpm = newBpm;  
   recalculateNextBeat();
 
   // Make sure we are showing the BPM animation
@@ -648,7 +670,7 @@ void processBPMTimeOffset(uint8_t offset) {
 
 void recalculateNextBeat() {
   // Get the number of milliseconds between beats 
-  millisBetweenBeats = (float)perMinuteMillis / (float)bpm;
+  millisBetweenBeats = (float)perMinuteMillis / (float)curBpm;
   float beatsFromStart = (float)(millis() - bpmStartTime - bpmOffset) / millisBetweenBeats;
   // Calculate next beat
   nextBeatMillis = bpmStartTime + round((millisBetweenBeats) * (float)(beatsFromStart + 1.0)); 
@@ -663,4 +685,13 @@ void recalculateNextBeat() {
 //    Serial.print(" nextBeatMillis ");
 //    Serial.println(nextBeatMillis);
 //  #endif
+}
+
+boolean isABeat(uint16_t beatNumInMeasure, struct BeatSequence beats) {
+  for (int i = 0; i < beats.sequenceSize; i++) {
+    if (beatNumInMeasure == beats.sequence[i]) {
+      return true;
+    }
+  } 
+  return false;
 }
