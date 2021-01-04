@@ -7,6 +7,10 @@
 //#define TETRIS_DEBUG 1
 
 // These are for reference on building shapes:
+// Each shape is formatted like...
+// blockRowSize, blockColSize, 
+// [Next N = blockRowSize * blockColSize]...] are
+// [1 if block is filled in], [0 if block is blank] }
 // 
 //uint8_t iBlck0[6] = { 1, 4, 1, 1, 1, 1 }; // I-block
 //
