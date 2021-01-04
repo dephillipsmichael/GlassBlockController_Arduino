@@ -27,6 +27,8 @@ const uint8_t beatMeasueDataLength = 20;
 const byte startSequenceByte = 1;
 // Append part to previous sequence messages
 const byte appendSequenceByte = 2;
+// Beat sequence message is the current beat
+const byte beatTrackingByte = 3;
 
 /**
  * A beat sequence represents quantized 24th beat impulses

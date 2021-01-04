@@ -8,11 +8,13 @@
 */
 #include <ArduinoBLE.h>
 
+//#define BLE_DEBUG 1;
+
 // LED srevice for controlling the glass block wall
 BLEService ledService("6e400001-b5a3-f393-e0a9-e50e24dcca9e"); // create service
 
 // Sets all LEDs to this HSV value immediately upon write
-BLECharacteristic argbChar =  BLECharacteristic("6e400002-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 4);
+BLECharacteristic argbChar =  BLECharacteristic("6e400002-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify | BLEWriteWithoutResponse, 4);
 
 // Receive updates about when low, mid, or high beats are detected from a device recording sound
 BLECharacteristic lowMidHighChar =  BLECharacteristic("6e400003-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 3);
@@ -55,8 +57,12 @@ void setupBluetooth() {
     while (1);
   }
 
+  // Set the desired connection interval to a strict 7.5ms - 15ms
+  BLE.setConnectionInterval(0x0006, 0x0006);
+  //BLE.setPhy(LE_2M, LE_2M);
+
   // Set the local name peripheral advertises
-  BLE.setLocalName("Glass Block Bar Controller");
+  BLE.setLocalName("Glass Block Bar Controller");  
 
   // Assign event handlers for connected, disconnected to peripheral
   BLE.setEventHandler(BLEConnected, blePeripheralConnectHandler);
@@ -82,7 +88,7 @@ void setupBluetooth() {
 }
 
 unsigned long now = 0;
-void loopBluetooth() {  
+boolean loopBluetooth() {  
   
   now = micros();
    
@@ -95,10 +101,18 @@ void loopBluetooth() {
 
   if (argbChar.written()) {
     // Alpha, red, green, blue
-    argbChar.readValue(argb, 4);    
+    argbChar.readValue(argb, 4);   
     processArgb(argb[0], argb[1], argb[2], argb[3]);
+    
+#ifdef BLE_DEBUG 
+  Serial.print("ARGB ");
+  Serial.print(argb[0]);
+  Serial.print(argb[1]);
+  Serial.print(argb[2]);
+  Serial.println(argb[3]);
+#endif
   }
-
+  
   if (lowMidHighChar.written()) {
     setLedAnimationPattern(ANIMATION_OFF);
     lowMidHighChar.readValue(lowMidHigh, 3);    
@@ -110,13 +124,17 @@ void loopBluetooth() {
     // BPM Info 
     bpmChar.readValue(bpmVals, 4);   
     if (bpmVals[0] == 0) {  
+#ifdef BLE_DEBUG      
       Serial.println("Set BPM");   
       Serial.println(bpmVals[3]);    
+#endif      
       setBpm((uint16_t)bpmVals[3], now);
       //processBPM(bpmVals[3]);    
     } else if (bpmVals[0] == 1) {
+#ifdef BLE_DEBUG            
       Serial.println("Set BPM delay");   
-      Serial.println(bpmVals[3]);    
+      Serial.println(bpmVals[3]);  
+#endif        
       setBpmDelay(bpmVals[3]);
       //processBPMTimeOffset(bpmVals[3]);
     }    
@@ -133,23 +151,34 @@ void loopBluetooth() {
   if (beatSequenceChar.written()) {
     setLedAnimationPattern(ANIMATION_BPM_TEST);
     // This is a quick operations < 100 MICRO seconds
-    beatSequenceChar.readValue(beatSequenceVals, 20);   
+    beatSequenceChar.readValue(beatSequenceVals, 20);          
 
-    // Decode and attach to specified animation
-    if (beatSequenceVals[1] == 0) {  
-      decodeAndAppendBeatSequence(beatSequenceVals, 20, getSimpleFadeBeatSequence());           
-    } else if (beatSequenceVals[1] == 1) {  
-      decodeAndAppendBeatSequence(beatSequenceVals, 20, getRainbowBeatSequence());           
-    } else if (beatSequenceVals[1] == 2) {  
-      decodeAndAppendBeatSequence(beatSequenceVals, 20, getBeatBc());
-    }
-  
-    Serial.println("Beat Sequence Recieved");
-    for (int i = 0; i < 20; i++) {
-      Serial.print(beatSequenceVals[i]); 
-      Serial.print(", "); 
-    }    
-    Serial.println("");
+#ifdef BLE_DEBUG      
+    Serial.println(beatSequenceVals[1]);
+#endif    
+
+    if (beatSequenceVals[0] == beatTrackingByte) {
+      doBpmAnimation((uint16_t)beatSequenceVals[1] + (uint16_t)beatSequenceVals[2]);
+    } else {
+
+#ifdef BLE_DEBUG
+      Serial.println("Beats Seq ");
+      for (int i = 0; i < 20; i++) {
+        Serial.print(beatSequenceVals[i]); 
+        Serial.print(", "); 
+      }    
+      Serial.println();
+#endif      
+      
+      // Decode and attach to specified animation
+      if (beatSequenceVals[1] == 0) {  
+        decodeAndAppendBeatSequence(beatSequenceVals, 20, getSimpleFadeBeatSequence());           
+      } else if (beatSequenceVals[1] == 1) {  
+        decodeAndAppendBeatSequence(beatSequenceVals, 20, getRainbowBeatSequence());           
+      } else if (beatSequenceVals[1] == 2) {  
+        decodeAndAppendBeatSequence(beatSequenceVals, 20, getBeatBc());
+      } 
+    }        
   } 
 }
 

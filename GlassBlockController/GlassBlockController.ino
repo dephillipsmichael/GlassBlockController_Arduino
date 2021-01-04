@@ -68,49 +68,16 @@ void setup() {
 
   // Start with a low brightness Rainbow Row Animation
   setGlobalBrightness(100);
-  processArgb(1, 33, 99, 133);
+  //processArgb(1, 33, 99, 133);
 }
 
 void loop() {
-  nowLoop = micros();
-
-  current24thBeat = quantizeBeatWithinMeasureTruncate(24, 4, nowLoop, animBpm, bpmStartTimeOffsetMicros);
-  if (last24thBeat != current24thBeat) {  
-
-//    Serial.print("b = ");
-//    Serial.print(current24thBeat);
-//    Serial.print(" t = ");
-//    Serial.print(nowLoop);
-//    Serial.println();
-    
-    // Glass Block LED Matrix Animations
-    
-    animationLoop(current24thBeat); 
-   
-    if (current24thBeat == 0) {      
-//      Serial.print("BPM ");
-//      Serial.println(animBpm);
-//      Serial.print("StartTime ");
-//      Serial.println(bpmStartTimeOffsetMicros);
-//      for (int i = 0; i < 96; i++) {
-//        Serial.print(debugCaptureMicros[i]);
-//        Serial.print(", ");
-//        debugCaptureMicros[i] = 0;
-//      }      
-//      Serial.println();
-//      for (int i = 0; i < 96; i++) {
-//        Serial.print(debugCaptureBeats[i]);
-//        Serial.print(", ");
-//        debugCaptureBeats[i] = 0;
-//      }      
-//      Serial.println();
-    }
-
-    // Debugging
-//    Serial.println(nowLoop - lastBeatTime);
-    lastBeatTime = nowLoop;
-  }
-  last24thBeat = current24thBeat;
+  // Max animation loops will cause
+  // significant BLE delay.  If you
+  // want best BLE transmission speed,
+  // make this animation loop only run
+  // when receiving a BLE mesage.
+  animationLoop(0);
 
   // Check for BLE messages
   loopBluetooth();

@@ -54,6 +54,7 @@ CRGB leds[NUM_LEDS];
 
 // This is a limiter to not draw too much power from the system
 #define MAX_BRIGHTNESS 200
+//#define MAX_BRIGHTNESS 255
 
 // LEDs per a row
 const uint16_t ledsPerRow = 70;
@@ -124,7 +125,7 @@ void setupFastLed() {
 // param: block_row row index for glass block
 // param: block_col column index for glass block
 // param: result pre-allocated array (needs size of 6) where the results will be stored
-void to_led_idx_set(uint16_t block_row, uint16_t block_col, int* result) {
+void to_led_idx_set(int block_row, int block_col, int* result) {
 
   // Bounds check bad param data
   if (block_row >= blocksRowCount || block_col >= blocksPerRow) {

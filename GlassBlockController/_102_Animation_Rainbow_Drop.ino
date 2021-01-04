@@ -31,8 +31,7 @@ void runRainbowDropAnimation(uint16_t beatNumInMeasure) {
     Serial.println("Beat for SF");
     randomRow = (randomRow + 1) % 5;
   }
-
   for (int col = 0; col < 12; col++) {
-    FastLED_lightBlockHue(randomRow, col, 255 / randomRow);     
-  }
+      FastLED_lightBlockHue(randomRow, col, 255 / (randomRow + 1));     
+    } 
 }

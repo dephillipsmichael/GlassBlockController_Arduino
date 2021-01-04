@@ -13,7 +13,7 @@ struct AnimationBasics {
   float iterator = 0.0;
 };
 
-// #define ANIMATION_DEBUG = 1
+//#define ANIMATION_DEBUG = 1
 
 // Current Animatio selected
 #define ANIMATION_OFF 0
@@ -85,7 +85,9 @@ void animationLoop(uint16_t beatInMeasure) {
   } else if (ledAnimationVal == ANIMATION_RAINBOW_ROW) {
     rainbowRow();
   } else if (ledAnimationVal == ANIMATION_BPM_TEST) {
-    doBpmAnimation(beatInMeasure);
+    // This is now called ONLY in response to bluetooth
+    // Due to issues with calling FastLED too frequently
+    //doBpmAnimation(beatInMeasure);
   }  
 }
 
@@ -538,15 +540,16 @@ const unsigned long perMinuteMillis = 60000;
 unsigned long nextBeatMillis = 0;
 float millisBetweenBeats = 0.0;
 
+
 void doBpmAnimation(uint16_t beatInMeasure) {
 
-  anim_BeatCheck(beatInMeasure);
-  
-//  runSimpleFadeAnimation(beatInMeasure);
-//  runRainbowDropAnimation(beatInMeasure);
+  //runSimpleFadeAnimation(beatInMeasure);  
+  //runRainbowDropAnimation(beatInMeasure);
+  //anim_BeatCheck(beatInMeasure);
+  draw_Tetris(beatInMeasure);
   
   FastLED.show();
-  addFastLEDShowDelay(12500);
+//  addFastLEDShowDelay(12500);
 
   if (true) {
     return;
