@@ -68,7 +68,7 @@ void setup() {
 
   // Start with a low brightness Rainbow Row Animation
   setGlobalBrightness(100);
-  //processArgb(1, 33, 99, 133);
+  processArgb(1, 33, 99, 133);
 }
 
 void loop() {

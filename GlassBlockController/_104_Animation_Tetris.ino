@@ -40,12 +40,17 @@ byte green  = 78;    // Neon-green
 byte red    = 0;
 byte yellow = 43;
 byte cyan   = 128;
-
 byte lightWhiteRgb = 20;
+
+// The hue offsetCtr is a rotating offset
+// that can be used to cycle the tetris pieces colors
+// the hueOffsetItr is how quickly it changes
+boolean useHueOffsetCtr = true;
+byte hueOffsetCtr = 0;
+byte hueOffsetItr = 8; 
 
 uint8_t blockSize = 11;
 uint8_t tetrisSize = 18;
-
 // See google spreadsheet for visual of this data:
 // https://docs.google.com/spreadsheets/d/1-_Ugj6EqNiLKDq4XKn1Xmqe9Q-mdsAmwi_rJ1mabieA/edit#gid=807635637
 uint8_t tetris[18][11] = {
@@ -100,12 +105,12 @@ BeatSequence* getBeatTetris() {
  */
 void draw_Tetris(uint16_t beatNumInMeasure) {
 
-  // For test purposes, just drop a piece every whole beat
+  // For test purposes, assign the beat timing 
   if (beatTetris.sequenceSize == 0) {
-    beatTetris.sequence = new uint16_t[4] { 0, 24, 48, 72 };
-    beatTetris.sequenceSize = 4;
-//    beatTetris.sequence = new uint16_t[8] { 0, 12, 24, 36, 48, 60, 72, 84 };
-//    beatTetris.sequenceSize = 8;
+//    beatTetris.sequence = new uint16_t[4] { 0, 24, 48, 72 };
+//    beatTetris.sequenceSize = 4;
+    beatTetris.sequence = new uint16_t[8] { 0, 12, 24, 36, 48, 60, 72, 84 };
+    beatTetris.sequenceSize = 8;
   }
 
   // Because we want to time the beats to the 
@@ -113,7 +118,7 @@ void draw_Tetris(uint16_t beatNumInMeasure) {
   // We look into the future at the next piece to drop
   // and check how many rows it will have to drop
   uint8_t nextTetrisPieceRows = (tetris[(tetrisIdx + 1) % tetrisSize][2] * 2); // always make it even
-  uint8_t nextBeatsInAdv = (beatNumInMeasure + nextTetrisPieceRows) % beatsInMeausre9624ths;
+  uint8_t nextBeatsInAdv = (beatNumInMeasure + nextTetrisPieceRows) % beatsInMeausre9624ths; 
 
   // Refresh screen with off white
   FastLED_FillSolid(lightWhiteRgb, lightWhiteRgb, lightWhiteRgb);
@@ -174,6 +179,10 @@ void draw_Tetris(uint16_t beatNumInMeasure) {
     drawAllTetrisPiecesUntil(tetrisIdx + 1);
   }
 
+  if (useHueOffsetCtr) {
+    hueOffsetCtr += hueOffsetItr;
+  }
+
   #ifdef TETRIS_DEBUG
       Serial.println();
   #endif    
@@ -226,7 +235,7 @@ void drawTetrisPiece(uint8_t tetrisPiece[], uint8_t animRowIdx) {
           Serial.print(col);
           Serial.print(")");
         #endif 
-        FastLED_lightBlockHue(row, col, tetrisPiece[0]);        
+        FastLED_lightBlockHue(row, col, hueTranslated_Tetris(tetrisPiece[0]));        
       }
       i++;
     }
@@ -253,4 +262,11 @@ void drawAllTetrisPiecesUntil(uint8_t endingIdx) {
   for (int i = 0; i < endingIdx; i++) {
     drawTetrisPiece(tetris[i], 0);
   }
+}
+
+byte hueTranslated_Tetris(byte rawHue) {
+  if (!useHueOffsetCtr) {
+    return rawHue;
+  }
+  return rawHue + hueOffsetCtr;
 }

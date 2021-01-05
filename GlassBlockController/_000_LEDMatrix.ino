@@ -132,7 +132,7 @@ void to_led_idx_set(int block_row, int block_col, int* result) {
     for (int i = 0; i < maxLedsPerBlock; i++) {
       result[i] = IGNORE_LED;
     }
-    return result; 
+    return;
   }
   
   // Compute the column of the left-most pixel in the block
