@@ -21,14 +21,10 @@ extern const uint16_t FOUR_FOUR = 4;
 extern const uint16_t EIGHT_EIGHT = 8;
 extern const uint16_t SIXTEEN_SIXTEEN = 16;
 
-// Beat measure characteristic data length
-const uint8_t beatMeasueDataLength = 20;
-// Start command byte
-const byte startSequenceByte = 1;
+// Duplicate, see BleCommand enum
+const byte startSequenceByte = 2;
 // Append part to previous sequence messages
-const byte appendSequenceByte = 2;
-// Beat sequence message is the current beat
-const byte beatTrackingByte = 3;
+const byte appendSequenceByte = 3;
 
 /**
  * A beat sequence represents quantized 24th beat impulses

@@ -27,7 +27,7 @@ void runRainbowDropAnimation(uint16_t beatNumInMeasure) {
     return;
   }
   
-  if (isABeat(beatNumInMeasure, beatRd)) {
+  if (isABeat(beatNumInMeasure, &beatRd)) {
     Serial.println("Beat for SF");
     randomRow = (randomRow + 1) % 5;
   }

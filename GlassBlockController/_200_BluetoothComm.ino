@@ -8,7 +8,7 @@
 */
 #include <ArduinoBLE.h>
 
-//#define BLE_DEBUG 1;
+#define BLE_DEBUG 1;
 
 // LED srevice for controlling the glass block wall
 BLEService ledService("6e400001-b5a3-f393-e0a9-e50e24dcca9e"); // create service
@@ -19,32 +19,32 @@ BLECharacteristic argbChar =  BLECharacteristic("6e400002-b5a3-f393-e0a9-e50e24d
 // Receive updates about when low, mid, or high beats are detected from a device recording sound
 BLECharacteristic lowMidHighChar =  BLECharacteristic("6e400003-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 3);
 
-// Receive bpm and timing info for animation speed
-BLECharacteristic bpmChar =  BLECharacteristic("6e400004-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 4);
+// Receive the animation to display and control various properties
+BLECharacteristic animationChar =  BLECharacteristic("6e400004-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 4);
 
-// Receive updates from 9 bands without bitwise shifting to shorten the message
-//BLECharacteristic equalizerLongChar =  BLECharacteristic("6e400005-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 9);
+// Receive bpm and timing info for syncing to music
+BLECharacteristic beatSequenceChar =  BLECharacteristic("6e400005-b5a3-f393-e0a9-e50e24dcca9e", BLEWriteWithoutResponse, 20);
 
-BLECharacteristic beatSequenceChar =  BLECharacteristic("6e400005-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 20);
+// Beat measure characteristic data length
+const uint8_t beatMeasueDataLength = 20;
+
+/**
+ * BleCommands switch the controller type
+ * or provide additional info to a specific controller
+ */
+enum BleCommand {
+  BLE_ARGB            = 0,
+  BLE_ANIMATION       = 1,
+  BLE_START_BEAT_SEQ  = 2,
+  BLE_APPEND_BEAT_SEQ = 3,
+  BLE_BEAT_TRACKING   = 4,
+  BLE_BPM_INFO        = 5  
+};
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
 void blePeripheralConnectHandler(BLEDevice central);
 void blePeripheralDisconnectHandler(BLEDevice central);
-
-// Buffer to read ARGB bytes from BLE characteristic
-byte* argb = new byte[4];
-int ALPHA_IDX = 0, RED_IDX = 1, GREEN_IDX = 2, BLUE_IDX = 3;
-
-// Buffer to read low, mid, high beats from the BLE central
-byte* lowMidHigh = new byte[3];
-int LOW_IDX = 0, MID_IDX = 1, HIGH_IDX = 2;
-
-// Buffer to read bpm info
-byte* bpmVals = new byte[4];
-
-// Buffer to Equalizer 9 freq band intensity values from BLE central
-byte* unpackedEqVals = new byte[9];
 
 // Buffer to retrieve the next part of the beat sequence
 byte* beatSequenceVals = new byte[20];
@@ -74,8 +74,7 @@ void setupBluetooth() {
   // add the characteristics to the service
   ledService.addCharacteristic(argbChar);
   ledService.addCharacteristic(lowMidHighChar);
-  ledService.addCharacteristic(bpmChar);
-  //ledService.addCharacteristic(equalizerLongChar); 
+  ledService.addCharacteristic(animationChar);
   ledService.addCharacteristic(beatSequenceChar);   
 
   // add the service
@@ -100,85 +99,105 @@ boolean loopBluetooth() {
   BLE.poll();
 
   if (argbChar.written()) {
-    // Alpha, red, green, blue
-    argbChar.readValue(argb, 4);   
-    processArgb(argb[0], argb[1], argb[2], argb[3]);
-    
-#ifdef BLE_DEBUG 
-  Serial.print("ARGB ");
-  Serial.print(argb[0]);
-  Serial.print(argb[1]);
-  Serial.print(argb[2]);
-  Serial.println(argb[3]);
-#endif
+//    setControllerType(ControllerType.Color);
+//    // Alpha, red, green, blue
+//    argbChar.readValue(argb, 4);   
+//    processArgb(argb[0], argb[1], argb[2], argb[3]);
   }
   
   if (lowMidHighChar.written()) {
-    setLedAnimationPattern(ANIMATION_OFF);
-    lowMidHighChar.readValue(lowMidHigh, 3);    
-    processLowMidHigh(lowMidHigh[LOW_IDX], lowMidHigh[MID_IDX], lowMidHigh[HIGH_IDX]);
-  }
-
-  if (bpmChar.written()) {
-    setLedAnimationPattern(ANIMATION_BPM_TEST);
-    // BPM Info 
-    bpmChar.readValue(bpmVals, 4);   
-    if (bpmVals[0] == 0) {  
-#ifdef BLE_DEBUG      
-      Serial.println("Set BPM");   
-      Serial.println(bpmVals[3]);    
-#endif      
-      setBpm((uint16_t)bpmVals[3], now);
-      //processBPM(bpmVals[3]);    
-    } else if (bpmVals[0] == 1) {
-#ifdef BLE_DEBUG            
-      Serial.println("Set BPM delay");   
-      Serial.println(bpmVals[3]);  
-#endif        
-      setBpmDelay(bpmVals[3]);
-      //processBPMTimeOffset(bpmVals[3]);
-    }    
-  }
-
-//  if (equalizerLongChar.written()) {
+    // No-op, needs re-factored
 //    setLedAnimationPattern(ANIMATION_OFF);
-//    // Equalizer vals need bitwise operations to unpack
-//    // This is a quick operations < 100 MICRO seconds
-//    equalizerLongChar.readValue(unpackedEqVals, 9);    
-//    showUnpackedEqValues(unpackedEqVals);
-//  } 
+//    lowMidHighChar.readValue(lowMidHigh, 3);    
+//    processLowMidHigh(lowMidHigh[LOW_IDX], lowMidHigh[MID_IDX], lowMidHigh[HIGH_IDX]);
+  }
+
+  if (animationChar.written()) {
+//    setControllerType(ControllerType.Animation);
+//    animationChar.readValue(animationVals, 4);     
+  }
 
   if (beatSequenceChar.written()) {
-    setLedAnimationPattern(ANIMATION_BPM_TEST);
+
     // This is a quick operations < 100 MICRO seconds
-    beatSequenceChar.readValue(beatSequenceVals, 20);          
+    beatSequenceChar.readValue(beatSequenceVals, 20);  
 
-#ifdef BLE_DEBUG      
-    Serial.println(beatSequenceVals[1]);
-#endif    
-
-    if (beatSequenceVals[0] == beatTrackingByte) {
-      doBpmAnimation((uint16_t)beatSequenceVals[1] + (uint16_t)beatSequenceVals[2]);
-    } else {
-
-#ifdef BLE_DEBUG
-      Serial.println("Beats Seq ");
-      for (int i = 0; i < 20; i++) {
-        Serial.print(beatSequenceVals[i]); 
-        Serial.print(", "); 
-      }    
-      Serial.println();
-#endif      
+    switch (beatSequenceVals[0]) {
       
-      // Decode and attach to specified animation
-      if (beatSequenceVals[1] == 0) {  
-        decodeAndAppendBeatSequence(beatSequenceVals, 20, getSimpleFadeBeatSequence());           
-      } else if (beatSequenceVals[1] == 1) {  
-        decodeAndAppendBeatSequence(beatSequenceVals, 20, getRainbowBeatSequence());           
-      } else if (beatSequenceVals[1] == 2) {  
-        decodeAndAppendBeatSequence(beatSequenceVals, 20, getBeatBc());
-      } 
-    }        
+      case BLE_ARGB:
+
+        #ifdef BLE_DEBUG            
+          Serial.println("ARGB received");   
+        #endif           
+
+        setControllerType(ControllerType_Color);
+        processArgbCommand(beatSequenceVals[1], beatSequenceVals[2], beatSequenceVals[3], beatSequenceVals[4]);
+        
+        break;
+
+      case BLE_ANIMATION:
+
+        #ifdef BLE_DEBUG            
+          Serial.println("Anim received");   
+        #endif        
+
+        setControllerType(ControllerType_Animation);
+        processAnimParams(beatSequenceVals);
+      
+        break;
+
+      case BLE_START_BEAT_SEQ:
+      case BLE_APPEND_BEAT_SEQ:
+
+        #ifdef BLE_DEBUG
+          Serial.println("Beats Seq ");
+          for (int i = 0; i < 20; i++) {
+            Serial.print(beatSequenceVals[i]); 
+            if (i < 19) {
+              Serial.print(", "); 
+            }
+          }    
+          Serial.println();
+        #endif    
+
+        // Decode and attach to specified animation
+        if (beatSequenceVals[1] == 0) {  
+          decodeAndAppendBeatSequence(beatSequenceVals, 20, getSimpleFadeBeatSequence());           
+        } else if (beatSequenceVals[1] == 1) {  
+          decodeAndAppendBeatSequence(beatSequenceVals, 20, getRainbowBeatSequence());           
+        } else if (beatSequenceVals[1] == 2) {  
+          decodeAndAppendBeatSequence(beatSequenceVals, 20, getBeatBc());
+        }  
+
+        break;
+
+      case BLE_BEAT_TRACKING:
+
+        #ifdef BLE_DEBUG            
+          Serial.print("Beat ");   
+          Serial.println((uint16_t)beatSequenceVals[1] + (uint16_t)beatSequenceVals[2]);  
+        #endif       
+
+        setControllerType(ControllerType_Beat);
+        processBeatNum((uint16_t)beatSequenceVals[1] + (uint16_t)beatSequenceVals[2]); 
+  
+        break;
+
+      case BLE_BPM_INFO:
+
+        #ifdef BLE_DEBUG            
+          Serial.print("Set BPM ");   
+          Serial.print(beatSequenceVals[2]);  
+          Serial.print(" and delay ");   
+          Serial.println(beatSequenceVals[3]);  
+        #endif       
+    
+        setControllerType(ControllerType_Beat);
+        setBpm(beatSequenceVals[2], now);
+        setBpmDelay(beatSequenceVals[3]);
+        
+        break;
+    }          
   } 
 }
 

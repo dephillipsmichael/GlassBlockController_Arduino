@@ -76,22 +76,8 @@ const uint8_t sidePlaneBlocksPerRow = 3;
 // About 8x8 inches by 3.25 inches thick is the size of each glass block
 const uint8_t blockSizeInInches = 8; 
 
-// The LED index ranges - see comments in class header
-// These are the constants to iterate over LEDs a row at a time
-// in the same direction.  Whereas if you iterate normally,
-// the animations would snake like in the class header wiring.
-// When running this code:
-// for (int i = 0; i < 70; i++) {     // Bottom row of glass blocks
-// for (int i = 139; i >= 70; i--) { 
-// for (int i = 140; i < 210; i++) {
-// for (int i = 279; i >= 210; i--) {
-// for (int i = 280; i < 350; i++) {  // Top row of glass blocks
-const uint8_t LED_ROW_INDEX_COUNT = 3;
-const uint8_t LED_ROW_INDEX_SIZE = LED_ROW_INDEX_COUNT * blocksRowCount;
-const int ledRowIndexes[] = { 0, 70, 1, 139, 70, -1, 140, 210, 1, 279, 210, -1, 280, 350, 1 };
-
 // The current global brightness, always < MAX_BRIGHTNESS
-uint8_t globalBrightness = 100;
+uint8_t globalBrightness = 255;
 void setGlobalBrightness(uint8_t brightness) {
   globalBrightness = brightness;
   FastLED.setBrightness(globalBrightnessScaled());
@@ -183,7 +169,7 @@ void FastLED_FillSolidHSV(byte h, byte s, byte v) {
 
 // Sets an LED index to a hue val at full saturation, and global brightness
 void FastLED_SetHue(int ledIdx, uint8_t hue) {
-  leds[ledIdx] = CHSV(hue, 255, globalBrightnessScaled());
+  leds[ledIdx] = CHSV(hue, 255, 255);
 }
 
 void FastLED_SetHueVal(int ledIdx, uint8_t hue, uint8_t val) {  
@@ -243,3 +229,10 @@ void FastLED_lightBlockRGB(uint8_t row, uint8_t col, uint8_t red, uint8_t green,
     }
   }
 }
+
+// Accessible colors for reference
+extern CRGB colorNautical = CRGB(0, 255, 198);
+extern CRGB colorRaspberrySorbet = CRGB(255, 0, 127);
+extern CRGB colorWhite = CRGB(255, 255, 255);
+extern CRGB colorLavender = CRGB(158, 0, 255);
+extern CRGB colorYellow = CRGB(255, 194, 9);
