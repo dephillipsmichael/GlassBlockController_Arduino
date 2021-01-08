@@ -8,7 +8,7 @@
 */
 #include <ArduinoBLE.h>
 
-#define BLE_DEBUG 1;
+// #define BLE_DEBUG 1;
 
 // LED srevice for controlling the glass block wall
 BLEService ledService("6e400001-b5a3-f393-e0a9-e50e24dcca9e"); // create service
@@ -128,10 +128,21 @@ boolean loopBluetooth() {
 
         #ifdef BLE_DEBUG            
           Serial.println("ARGB received");   
-        #endif           
-
-        setControllerType(ControllerType_Color);
-        processArgbCommand(beatSequenceVals[1], beatSequenceVals[2], beatSequenceVals[3], beatSequenceVals[4]);
+        #endif                      
+      
+        // Sending black will just control the global brightness
+        if (!(0 == beatSequenceVals[2] && 0 == beatSequenceVals[3] && 0 == beatSequenceVals[4])) {  
+          setGlobalBrightness(beatSequenceVals[1]);  
+          setControllerType(ControllerType_Color);
+          processRgbCommand(beatSequenceVals[2], beatSequenceVals[3], beatSequenceVals[4]);                   
+        } else {
+          #ifdef COLOR_CONTROLLER_DEBUG
+            Serial.print("New global alpha ");
+            Serial.println(beatSequenceVals[1]);           
+          #endif      
+          // Make sure the brightness is relative to the max in this code
+          setGlobalBrightness(beatSequenceVals[1]);  
+        }        
         
         break;
 

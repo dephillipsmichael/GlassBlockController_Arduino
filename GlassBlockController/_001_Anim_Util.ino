@@ -113,15 +113,20 @@ byte linearInterp255(struct LinearInterpolation interp, double t) {
  * @return linear interpolated value
  */
 double linearInterp(struct LinearInterpolation interp, double t) {
-  return (interp.coeff * t) + interp.start;
+  return interp.start + (interp.coeff * t);
 }
 
 /**
  * @param interpValue value computed by an interpolation
  * @return interpolation value rounded and modulated to fit a value between 0-255
  */
-byte interpTo255(double interpValue) {
-  return abs(round(interpValue)) % 255;
+byte interpTo255(double interpValue) {  
+  if (interpValue < 0) {
+    // Negative values treat as 255 -> 0
+    return 255 - (((int)round(abs(interpValue))) % 255);
+  }
+  // Postive values treat as 0 -> 255
+  return ((int)round(interpValue)) % 255;
 }
 
 /**

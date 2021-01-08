@@ -7,33 +7,70 @@
 // #define TETRIS_DEBUG 1
 
 struct TetrisVars {
+  byte lightWhiteRgb;
+  boolean useHueOffsetCtr;
+  byte hueOffsetCtr;
+  byte hueOffsetItr;
+  uint8_t tetrisIdx;
+  uint8_t unAssignedDropIdx;
+  uint8_t rowDropIdx;
+  uint8_t endingStateFlashCtr;
+  uint8_t beatsInMeausre9624ths;
+  uint8_t blockDataSize; // = 11;
+  uint8_t tetrisSize; // = 18;
+  uint8_t blocks[18][11];
+};
+
+// Speed of the tetris animation
+struct LinearInterpolation* interp_Tetris = NULL;
+
+// Store as pointer so as not to take up memory until used
+struct TetrisVars* tetris = NULL;
+
+// Keeps track of timing of animation triggers on assigned beats
+struct BeatSequence* beats_Tetris = NULL;
+BeatSequence* getBeats_Tetris() {
+  return beats_Tetris;
+}
+
+/**
+ * Initialize memory required to run this animation
+ */
+void init_Tetris() {
+  #ifdef TETRIS_DEBUG
+    Serial.println("tetris init");
+  #endif
+  
+  tetris = malloc(sizeof(struct TetrisVars));
+  beats_Tetris = malloc(sizeof(struct BeatSequence));
+
   // Hue values of specified colors
   byte lightWhiteRgb = 20;
 
   // The hue offsetCtr is a rotating offset
   // that can be used to cycle the tetris pieces colors
   // the hueOffsetItr is how quickly it changes
-  boolean useHueOffsetCtr = true;
-  byte hueOffsetCtr = 0;
-  byte hueOffsetItr = 8; 
+  tetris->useHueOffsetCtr = false;
+  tetris->hueOffsetCtr = 0;
+  tetris->hueOffsetItr = 8; 
 
   // Used to track which piece we are on
-  uint8_t tetrisIdx = 0;
+  tetris->tetrisIdx = 0;
   // Used to track which row we are at in the drop animation
-  uint8_t unAssignedDropIdx = 255;
-  uint8_t rowDropIdx = unAssignedDropIdx;
+  tetris->unAssignedDropIdx = 255;
+  tetris->rowDropIdx = tetris->unAssignedDropIdx;
   
   // State of the ending animation
-  uint8_t endingStateFlashCtr = 0;
+  tetris->endingStateFlashCtr = 0;
   
   // TODO: make this based on time signature
-  uint8_t beatsInMeausre9624ths = 96; // we only send half in our case
+  tetris->beatsInMeausre9624ths = 96; // we only send half in our case
 
-  uint8_t blockSize = 11;
-  uint8_t tetrisSize = 18;
+  tetris->blockDataSize = 11;
+  tetris->tetrisSize = 18;
   // See google spreadsheet for visual of this data:
   // https://docs.google.com/spreadsheets/d/1-_Ugj6EqNiLKDq4XKn1Xmqe9Q-mdsAmwi_rJ1mabieA/edit#gid=807635637
-  uint8_t tetris[18][11] = {
+  uint8_t tempBlocks[18][11] = {
     // Format is:
     // 
     // { hueColor, colDrop, rowDrop, blockRowSize, blockColSize, 
@@ -61,23 +98,11 @@ struct TetrisVars {
     {    HUE_AQUA,  4, 0, 1, 1, 1, 0, 0, 0, 0, 0 }, // Filler-block single block
     {    HUE_AQUA,  0, 0, 0, 1, 1, 0, 0, 0, 0, 0 }  // Flash the all row
   }; 
-};
-
-// Store as pointer so as not to take up memory until used
-struct TetrisVars* tetris = NULL;
-
-// Keeps track of timing of animation triggers on assigned beats
-struct BeatSequence* beats_Tetris = NULL;
-BeatSequence* getBeats_Tetris() {
-  return beats_Tetris;
-}
-
-/**
- * Initialize memory required to run this animation
- */
-void init_Tetris() {
-  tetris = malloc(sizeof(struct TetrisVars));
-  beats_Tetris = malloc(sizeof(struct BeatSequence));
+  for (int row = 0; row < tetris->tetrisSize; row++) {
+    for (int col = 0; col < tetris->blockDataSize; col++) {
+      tetris->blocks[row][col] = tempBlocks[row][col];
+    }
+  }
 }
 
 /**
@@ -85,12 +110,20 @@ void init_Tetris() {
  */
 void params_Tetris(byte params[]) {
   // No-op needed currently
+  #ifdef TETRIS_DEBUG
+    Serial.println("tetris params");
+    debugPrintBleParams(params, 20);
+  #endif
 }
 
 /**
  * Free up memory used by this animation
  */
 void free_Tetris() {
+  #ifdef TETRIS_DEBUG
+    Serial.print("free tetris");
+  #endif
+  
   free(tetris);
   tetris = NULL;
   
@@ -124,46 +157,52 @@ void setAnimFunc_Tetris(struct Animation* anim) {
  */
 void draw_Tetris(uint16_t beatNumInMeasure) {
 
-  // For test purposes, assign the beat timing 
-  if (beats_Tetris->sequenceSize == 0) {
-    beats_Tetris->sequence = new uint16_t[4] { 0, 24, 48, 72 };
-    beats_Tetris->sequenceSize = 4;
-//    beatTetris.sequence = new uint16_t[8] { 0, 12, 24, 36, 48, 60, 72, 84 };
-//    beatTetris.sequenceSize = 8;
+  if (tetris == NULL) {
+    return;
   }
 
-  // Because we want to time the beats to the 
-  // tetris piece hitting the bottom row.
-  // We look into the future at the next piece to drop
-  // and check how many rows it will have to drop
-  uint8_t nextTetrisPieceRows = (tetris->tetris[(tetris->tetrisIdx + 1) % tetris->tetrisSize][2] * 2); // always make it even
-  uint8_t nextBeatsInAdv = (beatNumInMeasure + nextTetrisPieceRows) % tetris->beatsInMeausre9624ths; 
+  // Check for next piece drop
+  boolean startNextPieceDrop = false;
+  
+  if (isBeatControllerRunning()) {
+    // Because we want to time the beats to the 
+    // tetris piece hitting the bottom row.
+    // We look into the future at the next piece to drop
+    // and check how many rows it will have to drop
+    uint8_t nextTetrisPieceRows = calcNextTetrisPieceRows();
+    uint8_t nextBeatsInAdv = calcNextBeatsInAdv(beatNumInMeasure, nextTetrisPieceRows);
+    startNextPieceDrop = (tetris->rowDropIdx == tetris->unAssignedDropIdx) && 
+      isABeat(nextBeatsInAdv, beats_Tetris);
+  } else {  // Use basic animation timing, every 40 frames  
+    if (beatNumInMeasure % 40 == 0) {
+      startNextPieceDrop = true;
+    }
+  }
 
   // Refresh screen with off white
   FastLED_FillSolid(tetris->lightWhiteRgb, tetris->lightWhiteRgb, tetris->lightWhiteRgb);
   
   // Check if we should drop the next piece
-  if ((tetris->rowDropIdx == tetris->unAssignedDropIdx) && 
-        isABeat(nextBeatsInAdv, beats_Tetris)) {
+  if (startNextPieceDrop) {
 
-    #ifdef TETRIS_DEBUG
+    //#ifdef TETRIS_DEBUG
       Serial.print(" Nxt Tetris.");
-    #endif       
+    //#endif       
 
     // Go to next tetris piece
     tetris->tetrisIdx++;
 
     // Check for ending state
-    if (tetris->tetrisIdx >= tetris->tetrisSize) {
-      #ifdef TETRIS_DEBUG
-        Serial.print(" Tetris strt end anim.");
-      #endif          
+    if ((tetris->tetrisIdx) >= (tetris->tetrisSize)) {
+      //#ifdef TETRIS_DEBUG
+        Serial.print(F(" Tetris strt end anim."));
+     // #endif          
       // Start the animation
       tetris->endingStateFlashCtr = 1; 
       tetris->rowDropIdx = 0;         
     } else {     
       // Do next tetris beat
-      tetris->rowDropIdx = tetris->tetris[tetris->tetrisIdx][2];
+      tetris->rowDropIdx = tetris->blocks[tetris->tetrisIdx][2];
     }
   } 
 
@@ -188,23 +227,31 @@ void draw_Tetris(uint16_t beatNumInMeasure) {
       Serial.print(tetris->rowDropIdx);
       Serial.print(".");
     #endif 
-    drawTetrisPiece(tetris->tetris[tetris->tetrisIdx], tetris->rowDropIdx);
+    drawTetrisPiece(tetris->blocks[tetris->tetrisIdx], tetris->rowDropIdx);
     tetris->rowDropIdx--;
     if (tetris->rowDropIdx == 0) {
       tetris->rowDropIdx = tetris->unAssignedDropIdx;
     }
   } else {
     // Draw the current tetris board
-    drawAllTetrisPiecesUntil(tetris->tetrisIdx + 1);
+    drawAllTetrisPiecesUntil((tetris->tetrisIdx) + 1);
   }
 
   if (tetris->useHueOffsetCtr) {
     tetris->hueOffsetCtr += tetris->hueOffsetItr;
   }
 
-  #ifdef TETRIS_DEBUG
+  //#ifdef TETRIS_DEBUG
       Serial.println();
-  #endif    
+  //#endif    
+}
+
+uint8_t calcNextTetrisPieceRows() {
+  return (tetris->blocks[(tetris->tetrisIdx + 1) % tetris->tetrisSize][2] * 2); // always make it even
+}
+
+uint8_t calcNextBeatsInAdv(uint16_t beatNumInMeasure, uint8_t nextTetrisPieceRows) {
+  return (beatNumInMeasure + nextTetrisPieceRows) % tetris->beatsInMeausre9624ths; 
 }
 
 /**
@@ -279,7 +326,7 @@ void drawAllTetrisPiecesUntil(uint8_t endingIdx) {
     Serial.print(".");
   #endif 
   for (int i = 0; i < endingIdx; i++) {
-    drawTetrisPiece(tetris->tetris[i], 0);
+    drawTetrisPiece(tetris->blocks[i], 0);
   }
 }
 

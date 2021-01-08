@@ -4,9 +4,15 @@
 
 #include <FastLED.h>
 
+// #define ANIMATION_RAINBOW_ROW_DEBUG = 1
+
 struct LinearInterpolation* interp_RainbowRow = NULL;
 struct BeatSequence* beats_RainbowRow = NULL;
 enum RainbowRowPattern pattern = Pattern_None;
+
+// To make the rainbow look best, we make
+// each LED 7 diff from the last one
+uint8_t colorsInRainbow = 7;
 
 /**
  * Forward declare enum param functions
@@ -38,7 +44,12 @@ void params_RainbowRow(byte params[]) {
   // Assign the new speed value to all rows
   byte newCoeff = params[3] * 0.25;
   for (int i = 0; i < ledsRowCount; i++) {
-    interp_RainbowRow[i].coeff = newCoeff;
+    // Keep moving left or right parity
+    if (interp_RainbowRow[i].coeff < 0) {
+      interp_RainbowRow[i].coeff = -newCoeff;
+    } else {
+      interp_RainbowRow[i].coeff = newCoeff;
+    }
   }
 }
 
@@ -52,9 +63,11 @@ void setupRainbowRowPattern(enum RainbowRowPattern newPattern) {
     return;  // No change necessary
   }
   pattern = newPattern;
-  
-  double blockSpacing = maxLedsPerBlock;
-  double rowSpacing = blockSpacing * ledsRowCount;
+
+  // block step is the number of leds to skip
+  byte blockStep = 255 / colorsInRainbow;  
+  int midRow = ledsRowCount / 2;
+  byte twoBlocks = 2 * maxLedsPerBlock;
 
   for (int i = 0; i < ledsRowCount; i++) { 
 
@@ -63,33 +76,45 @@ void setupRainbowRowPattern(enum RainbowRowPattern newPattern) {
     
     // Equal spacing rainbow across each row
     if (pattern == Pattern_Equal) {
-      interp_RainbowRow[i].start = (rowSpacing * i);
+      interp_RainbowRow[i].start = (blockStep * i);
     } 
     else if (pattern == Pattern_EqualOpp) {      
-      interp_RainbowRow[i].start = (rowSpacing * i);
+      // Here we want the animation to perform like FastLED_Rainbow
+      interp_RainbowRow[i].start = twoBlocks * i; 
       if (i % 2 != 0) {  // reverse direction of each row
         interp_RainbowRow[i].coeff = -interp_RainbowRow[i].coeff;
       }      
     } 
     // "/" looking design
     else if (pattern == Pattern_SlantedLeft) {
-      interp_RainbowRow[i].start = (rowSpacing * ledsRowCount) - (blockSpacing * i);
+      interp_RainbowRow[i].start = twoBlocks * (ledsRowCount - i - 1);
     }
     // "\" looking design
     else if (pattern == Pattern_SlantedRight) {
-      interp_RainbowRow[i].start = (blockSpacing * i); 
+      interp_RainbowRow[i].start = twoBlocks * i;
     }
     // "<" looking design
     else if (pattern == Pattern_ArrowLeft) {
-      interp_RainbowRow[i].start = (-abs(((ledsRowCount / 2) + 
-        (-(ledsRowCount / 2) + i))) * blockSpacing) + ((ledsRowCount / 2) * blockSpacing); 
+      interp_RainbowRow[i].start = blockStep * ((midRow) - abs(midRow - i)); 
     } 
     // ">" looking design
     else { // if (pattern == Pattern_ArrowRight)
-       interp_RainbowRow[i].start = abs(((ledsRowCount / 2) + 
-        (-(ledsRowCount / 2) + i))) * blockSpacing;
+       interp_RainbowRow[i].start = blockStep * abs(midRow - i); 
     }
+
+    #ifdef ANIMATION_RAINBOW_ROW_DEBUG
+      Serial.print(interp_RainbowRow[i].start);
+      Serial.print(", ");
+    #endif
   }
+  #ifdef ANIMATION_RAINBOW_ROW_DEBUG
+    Serial.println();
+    for (int i = 0; i < ledsRowCount; i++) {
+      Serial.print(interp_RainbowRow[i].coeff);    
+      Serial.print(", ");  
+    }    
+    Serial.println();
+  #endif
 }
 
 /**
@@ -136,9 +161,14 @@ void setAnimFunc_RainbowRow(struct Animation* anim) {
  */
 void draw_RainbowRow(uint16_t beatNumInMeasure) {
   for (int row = 0; row < ledsRowCount; row++) {
-    double start = linearInterp(interp_RainbowRow[row], beatNumInMeasure);
+    int hue = linearInterp255(interp_RainbowRow[row], beatNumInMeasure);
     for (int col = 0; col < ledsPerRow; col++) {
-      FastLED_SetHue(to_led_idx(row, col), interpTo255(start + (col * interp_RainbowRow[row].coeff)));
+      if (pattern == Pattern_EqualOpp) {
+        hue = (hue + colorsInRainbow) % 255;    
+      } else {
+        hue = (hue + abs(interp_RainbowRow[row].coeff)) % 255;
+      }
+      FastLED_SetHue(to_led_idx(row, col), hue);
     }
   }
 }

@@ -56,13 +56,15 @@ void setControllerType(enum ControllerType type) {
 
   if (controller.type() == type) {
     #ifdef STATE_CONTROLLER_DEBUG
-      Serial.print("Switching controller types from ");  
+      Serial.print(F("Controller type already set to "));  
+      Serial.print(type);  
+      Serial.println();
     #endif  
     return;  // We are already using this controller
   } 
 
   #ifdef STATE_CONTROLLER_DEBUG
-    Serial.print("Switching controller types from ");
+    Serial.print(F("Switching controller types from "));
     Serial.print(controller.type());
     Serial.print(" to ");
     Serial.print(type);

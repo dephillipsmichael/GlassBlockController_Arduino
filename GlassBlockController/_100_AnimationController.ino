@@ -4,7 +4,7 @@
 
 #include <FastLED.h>
 
-#define ANIMATION_DEBUG = 1
+// #define ANIMATION_DEBUG = 1
 
 /**
  * Holds a pointer to an array of animation objects
@@ -13,7 +13,8 @@ struct Animation* animations = NULL;
 uint8_t animationCount = 0;
 
 // Keeps track of running animation idx
-uint16_t animationFrameIdx = 0;
+const uint16_t animationControllerStartBeat = 255 + 255 + 1;
+uint16_t animationFrameIdx = animationControllerStartBeat;
 
 /**
  * Spin up resources used by this controller
@@ -27,7 +28,7 @@ void initController_Animation() {
   }
 
   // Start at the beginning of the animation
-  animationFrameIdx = 0;
+  animationFrameIdx = animationControllerStartBeat;
 
   // Create animation size of 1
   animations = malloc(sizeof(Animation) * 1);

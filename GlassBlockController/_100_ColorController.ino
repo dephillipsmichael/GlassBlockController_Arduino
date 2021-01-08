@@ -1,15 +1,15 @@
 
 #include <FastLED.h>
 
-#define COLOR_CONTROLLER_DEBUG = 1
+// #define COLOR_CONTROLLER_DEBUG = 1
 
 /**
  * Current color RGB and Alpha
  */
-byte alpha = 255;
-byte red = 40;
-byte green = 40;
-byte blue = 40;
+byte white40 = 40;
+byte red = white40;
+byte green = white40;
+byte blue = white40;
 
 // Holds the state of the signal to write the frame again
 boolean needsWritten = true;
@@ -19,7 +19,9 @@ void initController_Color() {
 }
 
 void destroyController_Color() {
-  // Taking up negligable memory, no-op needed
+  red = white40;
+  green = white40;
+  blue = white40;
 }
 
 void runLoopController_Color() {
@@ -51,33 +53,14 @@ void assignController_Color(struct Controller* controller) {
  * @param b blue color value
  * @return true if RGB command was executed, false if global brightness command was executed
  */
-void processArgbCommand(byte a, byte r, byte g, byte b) {   
-
-  // Make sure the brightness is relative to the max in this code
-  alpha = a;  
-  setGlobalBrightness(alpha);     
-
-  // Sending black will just control the global brightness 
-  if (0 == r && 0 == g && 0 == b) {  
-
-    #ifdef COLOR_CONTROLLER_DEBUG
-      Serial.print("New global alpha ");
-      Serial.println(alpha);           
-    #endif 
-    
-    return;      
-  }
+void processRgbCommand(byte r, byte g, byte b) {   
 
   #ifdef COLOR_CONTROLLER_DEBUG
-    Serial.print(alpha);
-    Serial.print(", ");
     Serial.print(r);
     Serial.print(", ");
     Serial.print(g);
     Serial.print(", ");
-    Serial.print(b);
-    Serial.print(" - new a, r, g, b cmd");
-    Serial.println(alpha);             
+    Serial.println(b);
   #endif  
 
   red = r;

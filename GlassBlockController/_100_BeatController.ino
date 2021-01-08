@@ -59,13 +59,17 @@ void initController_Beat() {
     return; // Already initialized
   }
 
+  #ifdef BEAT_CONTROLLER_DEBUG
+    Serial.print(F("init beat ctrlr"));
+  #endif
+
   // Create animation size of 1
-  beatAnimations = malloc(sizeof(Animation) * 1);
+  beatAnimations = malloc(sizeof(Animation));
   beatAnimationCount = 1;
 
   // Default to RainbowRow animation
-  setAnimFunc_RainbowRow(&animations[0]);
-  animations[0].init();
+  setAnimFunc_Tetris(&beatAnimations[0]);
+  beatAnimations[0].init();
 }
 
 void destroyController_Beat() {
@@ -95,10 +99,14 @@ void assignController_Beat(struct Controller* controller) {
 }
 
 void processBeatNum(uint16_t beatNumInMeasure) {
-  for (int i = 0; i < animationCount; i++) {
-    animations[i].draw(beatNumInMeasure);
+  for (int i = 0; i < beatAnimationCount; i++) {
+    beatAnimations[i].draw(beatNumInMeasure);
   }
   FastLED.show();
+}
+
+boolean isBeatControllerRuning() {
+  return beatAnimationCount > 0;
 }
 
 boolean isABeat(uint16_t beatNumInMeasure, struct BeatSequence* beats) {
