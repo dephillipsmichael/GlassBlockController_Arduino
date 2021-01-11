@@ -4,7 +4,7 @@
  * that are no longer needed by the controller
  */
 
-// #define STATE_CONTROLLER_DEBUG = 1
+#define STATE_CONTROLLER_DEBUG = 1
 
 /**
  * The type of controller to write to the LED wall

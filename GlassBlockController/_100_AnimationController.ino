@@ -4,7 +4,7 @@
 
 #include <FastLED.h>
 
-// #define ANIMATION_DEBUG = 1
+#define ANIMATION_DEBUG = 1
 
 /**
  * Holds a pointer to an array of animation objects
@@ -76,9 +76,22 @@ void setAnimationType(enum AnimType newType) {
     return;
   }
 
-  // If we switched types, setup the anim
+  // If we switched types, destroy the old and set up the new anim
   if (animations[0].type() != newType) {
+
+    #ifdef ANIMATION_DEBUG
+      Serial.print("Anim 0 change from ");
+      Serial.print(animations[0].type());
+      Serial.print(" to ");
+      Serial.println(newType);
+    #endif
+
+    // Destroy the old animation
+    animations[0].destroy();
+
+    // Initialize the new animation
     assignAnimationType(newType, &animations[0]);
+    animations[0].init();
   }
 }
 

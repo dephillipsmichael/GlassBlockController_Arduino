@@ -22,6 +22,34 @@ enum RainbowRowPattern {
 };
 
 /**
+ * Type of Rainbow beat animation style
+ */
+enum BeatStyle {
+  Beat_Style_Random = 0,
+  Beat_Style_Metronome = 1
+};
+
+enum RainbowRowPattern rainbowRowPatternForIdx(uint8_t idx);
+enum RainbowRowPattern rainbowRowPatternForIdx(uint8_t idx) {
+  switch(idx) {
+    case Pattern_Equal:
+      return Pattern_Equal;
+    case Pattern_EqualOpp:
+      return Pattern_EqualOpp;
+    case Pattern_SlantedLeft:
+      return Pattern_SlantedLeft;
+    case Pattern_SlantedRight:
+      return Pattern_SlantedRight;
+    case Pattern_ArrowLeft:
+      return Pattern_ArrowLeft;
+    case Pattern_ArrowRight:
+      return Pattern_ArrowRight;
+    default:
+      return Pattern_None;          
+  }
+}
+
+/**
  * Animation function pointers to implement
  * inheritence for each animation.
  * This allows the animation controller
@@ -44,6 +72,51 @@ struct LinearInterpolation {
   double start = 0.0;
   double coeff = 0.0;
 };
+
+/**
+ * Animation State basics for linear hue.
+ * However, a dynamic version contains
+ * the ability to track it's original (og) values.
+ * That way you can animate by changing speed
+ * and come back to the original.
+ */
+struct DynamicLinearInterpolation {
+
+  // Stores the og interpolation values
+  double ogStart;
+  double ogStep;
+
+  // The current start and coef 
+  double curVal;
+  // Stores the target value to end on
+  // Stores the step for iterating to target
+  double curStep;
+
+  // Target that the curStep is working towards
+  // By adding speedStep
+  double targetSpeedStep;
+  // Use this to speed up step to make 
+  // quadratic animation changes
+  double speedStep;
+};
+
+void initDynamicLinearInterpolation(struct DynamicLinearInterpolation* interp) {
+  interp->ogStart = 0.0;
+  interp->ogStep = 0.0;
+  
+  // The current start and coef 
+  interp->curVal = 0.0;
+  // Stores the target value to end on
+  // Stores the step for iterating to target
+  interp->curStep = 0.0;
+  
+  // Target that the curStep is working towards
+  // By adding speedStep
+  interp->targetSpeedStep = 0.0;  
+  // Use this to speed up step to make 
+  // quadratic animation changes
+  interp->speedStep = 0.0;
+}
 
 /**
  * Animation State basics for quadratic hue
@@ -85,8 +158,7 @@ void assignAnimationType(enum AnimType type, struct Animation* anim) {
       setAnimFunc_RainbowRow(anim);
       break;
     case AnimType_RainbowSine:
-      // TODO: implement the rest
-      // setAnimFunc_RainbowRow(anim);
+      setAnimFunc_RainbowSine(anim);
       break;
   }
 }
@@ -103,6 +175,9 @@ void assignAnimationType(enum AnimType type, struct Animation* anim) {
 byte linearInterp255(struct LinearInterpolation interp, double t) {
   return interpTo255(linearInterp(interp, t));
 }
+double dynamicLinearInterp255(struct DynamicLinearInterpolation interp, double t) {
+  return interpTo255(dynamicLinearInterp(interp, t));
+}
 
 /**
  * Applies a linear step to the animation parameters
@@ -114,6 +189,43 @@ byte linearInterp255(struct LinearInterpolation interp, double t) {
  */
 double linearInterp(struct LinearInterpolation interp, double t) {
   return interp.start + (interp.coeff * t);
+}
+double dynamicLinearInterp(struct DynamicLinearInterpolation interp, double t) {
+  return interp.ogStart + (interp.ogStep * t);
+}
+
+/**
+ * Calculate the difference between the target and the og 
+ */
+void dynamicLinearInterpStep(struct DynamicLinearInterpolation* interp) {
+  
+  // Check for ending bounds in changing speed
+  if ((interp->speedStep > 0 && interp->curStep >= interp->targetSpeedStep) ||
+      (interp->curStep < 0 && interp->curStep <= interp->targetSpeedStep)) {
+
+    // Reset speed change vars
+    interp->speedStep = 0.0;
+    interp->curStep = interp->targetSpeedStep;
+    interp->targetSpeedStep = 0.0;
+  }
+
+  // Iterate speed that curVal is going to target
+  interp->curStep += interp->speedStep;
+
+  // Step through the 
+  interp->curVal += interp->curStep;
+}
+
+double calcDynamicLinearStep(struct DynamicLinearInterpolation* interp, double targetSpeed, double framesToDoItIn) {
+  double diff = targetSpeed - interp->curStep;  
+  interp->speedStep = diff / framesToDoItIn;
+  interp->targetSpeedStep = targetSpeed;
+}
+
+double calcDynamicLinearExponentialStep(struct DynamicLinearInterpolation* interp, double target, double framesUntilBeat, double speedStep) {
+  calcDynamicLinearStep(interp, target, framesUntilBeat);
+  // TODO: mdephillips 1/7/2021 do we need to re-evaluate step to land on beat
+  interp->speedStep = speedStep;
 }
 
 /**

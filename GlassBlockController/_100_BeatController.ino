@@ -4,7 +4,7 @@
 
 #include <FastLED.h>
 
-// #define BEAT_CONTROLLER_DEBUG 1
+#define BEAT_CONTROLLER_DEBUG 1
 
 /**
  * Holds a pointer to an array of animation objects
@@ -67,8 +67,10 @@ void initController_Beat() {
   beatAnimations = malloc(sizeof(Animation));
   beatAnimationCount = 1;
 
-  // Default to RainbowRow animation
-  setAnimFunc_Tetris(&beatAnimations[0]);
+  // Default animation
+  setAnimFunc_RainbowRow(&beatAnimations[0]);
+//  setAnimFunc_Tetris(&beatAnimations[0]);
+
   beatAnimations[0].init();
 }
 
@@ -98,6 +100,21 @@ void assignController_Beat(struct Controller* controller) {
   controller->type = &controllerType_Beat;
 }
 
+void processBeatSequence(byte sequenceMsg[]) {
+  
+  byte animIdx = sequenceMsg[1];
+  // Decode and attach to specified animation
+  if (animIdx < beatAnimationCount) {  // bounds check
+    decodeAndAppendBeatSequence(sequenceMsg, 20, beatAnimations[animIdx].beat());
+
+    #ifdef BEAT_CONTROLLER_DEBUG
+      Serial.print("Decoded new beat seq ");
+      Serial.print(animIdx);
+      Serial.println();
+    #endif
+  }
+}
+
 void processBeatNum(uint16_t beatNumInMeasure) {
   for (int i = 0; i < beatAnimationCount; i++) {
     beatAnimations[i].draw(beatNumInMeasure);
@@ -105,15 +122,54 @@ void processBeatNum(uint16_t beatNumInMeasure) {
   FastLED.show();
 }
 
-boolean isBeatControllerRuning() {
+/**
+ * @return the the iterator step that matches the current BPM
+ */
+double stepForBpm() {
+  // 20 is max iterator, steps in 0.25 between 0 and 200
+  return (20.0 * (animBpm / 200.0));
+}
+
+/**
+ * @return true if the beat controller is running, false otherwise
+ */
+boolean isBeatControllerRunning() {
   return beatAnimationCount > 0;
 }
 
+/**
+ * @return true if the current beat num has a beat in a sequence
+ */
 boolean isABeat(uint16_t beatNumInMeasure, struct BeatSequence* beats) {
   for (int i = 0; i < beats->sequenceSize; i++) {
     if (beatNumInMeasure == beats->sequence[i]) {
+      #ifdef BEAT_CONTROLLER_DEBUG
+        Serial.print(i);        
+        Serial.println(" beat found");       
+      #endif
       return true;
     }
   } 
   return false;
+}
+
+/**
+ * @return the number of beats distance to next beat in the sequence, -1 if no next beat
+ */
+int distanceToNextBeat(uint16_t beatNumInMeasure, struct BeatSequence beats) {
+  if (beats.sequenceSize == 0) {
+    return -1;
+  }
+
+  // Beats are ordered lowest to highest, so loop til we pass one,
+  // then we know where the next beat is
+  for (int i = 0; i < beats.sequenceSize; i++) {
+    if (beatNumInMeasure > beats.sequence[i] && i < (beats.sequenceSize - 1)) {
+      return beats.sequence[i + 1] - beatNumInMeasure;
+    }   
+  } 
+  
+  // On last beat now, add distance to first beat
+  // TODO: switch 96 to beats in time signature
+  return (96 - beatNumInMeasure) + beats.sequence[0];
 }

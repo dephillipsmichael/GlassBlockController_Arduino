@@ -8,7 +8,7 @@
 */
 #include <ArduinoBLE.h>
 
-// #define BLE_DEBUG 1;
+#define BLE_DEBUG 1;
 
 // LED srevice for controlling the glass block wall
 BLEService ledService("6e400001-b5a3-f393-e0a9-e50e24dcca9e"); // create service
@@ -170,23 +170,18 @@ boolean loopBluetooth() {
           }    
           Serial.println();
         #endif    
-
-        // Decode and attach to specified animation
-        if (beatSequenceVals[1] == 0) {  
-          decodeAndAppendBeatSequence(beatSequenceVals, 20, getSimpleFadeBeatSequence());           
-        } else if (beatSequenceVals[1] == 1) {  
-          decodeAndAppendBeatSequence(beatSequenceVals, 20, getRainbowBeatSequence());           
-        } else if (beatSequenceVals[1] == 2) {  
-          decodeAndAppendBeatSequence(beatSequenceVals, 20, getBeatBc());
-        }  
+        
+        setControllerType(ControllerType_Beat);
+        processBeatSequence(beatSequenceVals);
 
         break;
 
       case BLE_BEAT_TRACKING:
 
-        #ifdef BLE_DEBUG            
-          Serial.print("Beat ");   
-          Serial.println((uint16_t)beatSequenceVals[1] + (uint16_t)beatSequenceVals[2]);  
+        #ifdef BLE_DEBUG     
+          if (((uint16_t)beatSequenceVals[1] + (uint16_t)beatSequenceVals[2]) == 0) {
+            Serial.println("Beat 0");   
+          }
         #endif       
 
         setControllerType(ControllerType_Beat);
