@@ -34,14 +34,15 @@ void init_RainbowRow() {
   interp_RainbowRow = malloc(sizeof(struct DynamicLinearInterpolation) * ledsRowCount);  
   for (int row = 0; row < ledsRowCount; row++) {
     initDynamicLinearInterpolation(&interp_RainbowRow[row]);
-  }
-
+    interp_RainbowRow[row].ogStep = 12.0;
+    interp_RainbowRow[row].curStep = 12.0;    
+  } 
+  
   params_RRStruct = malloc(sizeof(struct RainbowRowParams));
   initParams_RainbowRow();
   
   // Start with a random pattern
-  enum RainbowRowPattern randomPattern = rainbowRowPatternForIdx(random(0, Pattern_ArrowRight + 1));
-  setupRainbowRowPattern(randomPattern);
+  setupRainbowRowPattern(Pattern_Equal);   
   
   beats_RainbowRow = malloc(sizeof(struct BeatSequence));
   beats_RainbowRow->sequenceSize = 0;
@@ -53,6 +54,7 @@ void initParams_RainbowRow() {
   params_RRStruct->pattern = Pattern_None;
   // Current Rainbow Row beat style
   params_RRStruct->style = Beat_Style_Random;
+  //params_RRStruct->style = Beat_Style_Metronome;
 
   // To make the rainbow look best, we make
   // each LED 7 diff from the last one
@@ -64,6 +66,9 @@ void initParams_RainbowRow() {
  */
 void params_RainbowRow(byte params[]) {
   if (interp_RainbowRow == NULL) {
+    #ifdef ANIMATION_RAINBOW_ROW_DEBUG 
+      Serial.println(F("Rainbow Row Anim not initialized"));
+    #endif
     return;
   }
 
@@ -236,20 +241,21 @@ void drawBeats_RainbowRow(uint16_t beatNumInMeasure) {
       Serial.print("RainbowRow beat");
     #endif
 
-    double newSpeedTarget = stepForBpm() * ((random(0, 36) + 4) / 8);
-    while (newSpeedTarget == interp_RainbowRow[row].curStep) {
-      newSpeedTarget = stepForBpm() * (random(0, 16) / 8);
-    }
-
-    #ifdef ANIMATION_RAINBOW_ROW_DEBUG
-      Serial.print("RainbowRow new speed = ");
-      Serial.print(newSpeedTarget);
-      Serial.println();
-    #endif
-    
-    for (int row = 0; row < ledsRowCount; row++) {      
-      calcDynamicLinearStep(&interp_RainbowRow[row], newSpeedTarget, 6.0); 
-    } 
+    double newSpeedTarget = stepForBpm() * ((double)random(50, 200) / 100.0);
+      if (params_RRStruct->style == Beat_Style_Random) {
+        #ifdef ANIMATION_RAINBOW_ROW_DEBUG
+        Serial.print("RainbowRow new rand speed = ");
+        Serial.println(newSpeedTarget);
+      #endif
+      
+      for (int row = 0; row < ledsRowCount; row++) {      
+        calcDynamicLinearStep(&interp_RainbowRow[row], newSpeedTarget, 6.0); 
+      }  
+    } else if (params_RRStruct->style == Beat_Style_Metronome) {
+      for (int row = 0; row < ledsRowCount; row++) {      
+        interp_RainbowRow[row].curStep = -interp_RainbowRow[row].curStep;
+      }  
+    }   
 
     #ifdef ANIMATION_RAINBOW_ROW_DEBUG
       Serial.println();

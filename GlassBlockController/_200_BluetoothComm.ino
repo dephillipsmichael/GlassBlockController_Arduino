@@ -8,22 +8,13 @@
 */
 #include <ArduinoBLE.h>
 
-#define BLE_DEBUG 1;
+// #define BLE_DEBUG 1;
 
 // LED srevice for controlling the glass block wall
 BLEService ledService("6e400001-b5a3-f393-e0a9-e50e24dcca9e"); // create service
 
-// Sets all LEDs to this HSV value immediately upon write
-BLECharacteristic argbChar =  BLECharacteristic("6e400002-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify | BLEWriteWithoutResponse, 4);
-
-// Receive updates about when low, mid, or high beats are detected from a device recording sound
-BLECharacteristic lowMidHighChar =  BLECharacteristic("6e400003-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 3);
-
-// Receive the animation to display and control various properties
-BLECharacteristic animationChar =  BLECharacteristic("6e400004-b5a3-f393-e0a9-e50e24dcca9e", BLERead | BLEWrite | BLENotify, 4);
-
 // Receive bpm and timing info for syncing to music
-BLECharacteristic beatSequenceChar =  BLECharacteristic("6e400005-b5a3-f393-e0a9-e50e24dcca9e", BLEWriteWithoutResponse, 20);
+BLECharacteristic communicationChar =  BLECharacteristic("6e400005-b5a3-f393-e0a9-e50e24dcca9e", BLEWriteWithoutResponse, 20);
 
 // Beat measure characteristic data length
 const uint8_t beatMeasueDataLength = 20;
@@ -72,10 +63,7 @@ void setupBluetooth() {
   BLE.setAdvertisedService(ledService);
 
   // add the characteristics to the service
-  ledService.addCharacteristic(argbChar);
-  ledService.addCharacteristic(lowMidHighChar);
-  ledService.addCharacteristic(animationChar);
-  ledService.addCharacteristic(beatSequenceChar);   
+  ledService.addCharacteristic(communicationChar);   
 
   // add the service
   BLE.addService(ledService);
@@ -98,45 +86,33 @@ boolean loopBluetooth() {
   // This takes ~1000 MICRO secodns to perform.
   BLE.poll();
 
-  if (argbChar.written()) {
-//    setControllerType(ControllerType.Color);
-//    // Alpha, red, green, blue
-//    argbChar.readValue(argb, 4);   
-//    processArgb(argb[0], argb[1], argb[2], argb[3]);
-  }
-  
-  if (lowMidHighChar.written()) {
-    // No-op, needs re-factored
-//    setLedAnimationPattern(ANIMATION_OFF);
-//    lowMidHighChar.readValue(lowMidHigh, 3);    
-//    processLowMidHigh(lowMidHigh[LOW_IDX], lowMidHigh[MID_IDX], lowMidHigh[HIGH_IDX]);
-  }
-
-  if (animationChar.written()) {
-//    setControllerType(ControllerType.Animation);
-//    animationChar.readValue(animationVals, 4);     
-  }
-
-  if (beatSequenceChar.written()) {
+  // Check for a change in the communication characteristic
+  if (communicationChar.written()) {
 
     // This is a quick operations < 100 MICRO seconds
-    beatSequenceChar.readValue(beatSequenceVals, 20);  
+    communicationChar.readValue(beatSequenceVals, 20); 
+
+    #ifdef BLE_DEBUG
+      Serial.println("BLE MSG ");
+      for (int i = 0; i < 20; i++) {
+        Serial.print(beatSequenceVals[i]); 
+        if (i < 19) {
+          Serial.print(", "); 
+        }
+      }    
+      Serial.println();
+    #endif   
 
     switch (beatSequenceVals[0]) {
       
-      case BLE_ARGB:
-
-        #ifdef BLE_DEBUG            
-          Serial.println("ARGB received");   
-        #endif                      
+      case BLE_ARGB:              
       
         // Sending black will just control the global brightness
         if (!(0 == beatSequenceVals[2] && 0 == beatSequenceVals[3] && 0 == beatSequenceVals[4])) {  
-          setGlobalBrightness(beatSequenceVals[1]);  
           setControllerType(ControllerType_Color);
           processRgbCommand(beatSequenceVals[2], beatSequenceVals[3], beatSequenceVals[4]);                   
         } else {
-          #ifdef COLOR_CONTROLLER_DEBUG
+          #ifdef BLE_DEBUG
             Serial.print("New global alpha ");
             Serial.println(beatSequenceVals[1]);           
           #endif      
@@ -148,28 +124,13 @@ boolean loopBluetooth() {
 
       case BLE_ANIMATION:
 
-        #ifdef BLE_DEBUG            
-          Serial.println("Anim received");   
-        #endif        
-
         setControllerType(ControllerType_Animation);
         processAnimParams(beatSequenceVals);
       
         break;
 
       case BLE_START_BEAT_SEQ:
-      case BLE_APPEND_BEAT_SEQ:
-
-        #ifdef BLE_DEBUG
-          Serial.println("Beats Seq ");
-          for (int i = 0; i < 20; i++) {
-            Serial.print(beatSequenceVals[i]); 
-            if (i < 19) {
-              Serial.print(", "); 
-            }
-          }    
-          Serial.println();
-        #endif    
+      case BLE_APPEND_BEAT_SEQ:        
         
         setControllerType(ControllerType_Beat);
         processBeatSequence(beatSequenceVals);
@@ -178,29 +139,15 @@ boolean loopBluetooth() {
 
       case BLE_BEAT_TRACKING:
 
-        #ifdef BLE_DEBUG     
-          if (((uint16_t)beatSequenceVals[1] + (uint16_t)beatSequenceVals[2]) == 0) {
-            Serial.println("Beat 0");   
-          }
-        #endif       
-
         setControllerType(ControllerType_Beat);
         processBeatNum((uint16_t)beatSequenceVals[1] + (uint16_t)beatSequenceVals[2]); 
   
         break;
 
-      case BLE_BPM_INFO:
-
-        #ifdef BLE_DEBUG            
-          Serial.print("Set BPM ");   
-          Serial.print(beatSequenceVals[2]);  
-          Serial.print(" and delay ");   
-          Serial.println(beatSequenceVals[3]);  
-        #endif       
+      case BLE_BPM_INFO:  
     
         setControllerType(ControllerType_Beat);
-        setBpm(beatSequenceVals[2], now);
-        setBpmDelay(beatSequenceVals[3]);
+        processBpmInfo(beatSequenceVals, now);
         
         break;
     }          

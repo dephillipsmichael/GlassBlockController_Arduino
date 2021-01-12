@@ -102,13 +102,13 @@ struct DynamicLinearInterpolation {
 
 void initDynamicLinearInterpolation(struct DynamicLinearInterpolation* interp) {
   interp->ogStart = 0.0;
-  interp->ogStep = 0.0;
+  interp->ogStep = 2.0;
   
   // The current start and coef 
   interp->curVal = 0.0;
   // Stores the target value to end on
   // Stores the step for iterating to target
-  interp->curStep = 0.0;
+  interp->curStep = 2.0;
   
   // Target that the curStep is working towards
   // By adding speedStep
