@@ -24,8 +24,8 @@ void destroyController_Color() {
   blue = white40;
 }
 
-void runLoopController_Color() {
-  if (needsWritten) {    
+void runLoopController_Color(unsigned long millisTime) {
+  if (needsWritten) {
     needsWritten = false;
     FastLED_FillSolid(red, green, blue);
     FastLED.show();
@@ -46,14 +46,14 @@ void assignController_Color(struct Controller* controller) {
 
 /**
  * Process an ARGB command from BLE
- * 
+ *
  * @param alpha is used to control global brightness to set an "alpha"
  * @param r red color value
  * @param g green color value
  * @param b blue color value
  * @return true if RGB command was executed, false if global brightness command was executed
  */
-void processRgbCommand(byte r, byte g, byte b) {   
+void processRgbCommand(byte r, byte g, byte b) {
 
   #ifdef COLOR_CONTROLLER_DEBUG
     Serial.print(r);
@@ -61,11 +61,11 @@ void processRgbCommand(byte r, byte g, byte b) {
     Serial.print(g);
     Serial.print(", ");
     Serial.println(b);
-  #endif  
+  #endif
 
   red = r;
   green = g;
-  blue = b;  
+  blue = b;
 
    // New command, need to signal to write the frame again
   needsWritten = true;

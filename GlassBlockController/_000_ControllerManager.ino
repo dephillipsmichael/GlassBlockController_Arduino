@@ -1,6 +1,6 @@
 /**
  * This class controls the state of the GlassBlock LED
- * and manages when states should destroy resources 
+ * and manages when states should destroy resources
  * that are no longer needed by the controller
  */
 
@@ -16,12 +16,12 @@ enum ControllerType {
 };
 
 /**
- * Used by the controller manager to maintain 
+ * Used by the controller manager to maintain
  * state of each controller
  */
 typedef void (*InitFunc)();
 typedef void (*DestroyFunc)();
-typedef void (*RunLoopFunc)();
+typedef void (*RunLoopFunc)(unsigned long);
 typedef enum ControllerType (*ControllerTypeFunc)();
 
 struct Controller {
@@ -36,7 +36,7 @@ struct Controller controller;
  * Initialize the controller manager
  * Assigns default controller
  */
-void setupControllerManager() {  
+void setupControllerManager() {
   // Default to color controller
   assignController_Color(&controller);
 }
@@ -44,8 +44,8 @@ void setupControllerManager() {
 /**
  * Runs the selected controller loop
  */
-void loopControllerManager() {
-  controller.runLoop();  
+void loopControllerManager(unsigned long millisTime) {
+  controller.runLoop(millisTime);
 }
 
 void setControllerType(enum ControllerType type);
@@ -56,12 +56,12 @@ void setControllerType(enum ControllerType type) {
 
   if (controller.type() == type) {
     #ifdef STATE_CONTROLLER_DEBUG
-      Serial.print(F("Controller type already set to "));  
-      Serial.print(type);  
+      Serial.print(F("Controller type already set to "));
+      Serial.print(type);
       Serial.println();
-    #endif  
+    #endif
     return;  // We are already using this controller
-  } 
+  }
 
   #ifdef STATE_CONTROLLER_DEBUG
     Serial.print(F("Switching controller types from "));
@@ -69,7 +69,7 @@ void setControllerType(enum ControllerType type) {
     Serial.print(" to ");
     Serial.print(type);
     Serial.println();
-  #endif 
+  #endif
 
   controller.destroy();
 
@@ -80,7 +80,7 @@ void setControllerType(enum ControllerType type) {
   } else { // ControllerType.Beat:
     assignController_Beat(&controller);
   }
-  
+
   controller.init();
 }
 
@@ -91,7 +91,7 @@ void debugPrintBleParams(byte msg[], int msgSize) {
   for (int i = 0; i < msgSize; i++) {
     Serial.print(msg[i]);
     if (i < (msgSize - 1)) {
-      Serial.print(", ");  
+      Serial.print(", ");
     }
   }
   Serial.println();

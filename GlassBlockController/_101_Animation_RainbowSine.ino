@@ -161,7 +161,7 @@ void setAnimFunc_RainbowSine(struct Animation* anim) {
 void draw_RainbowSine(uint16_t beatNumInMeasure) { 
 
   if (isBeatControllerRunning()) {
-    //drawBeats_RainbowRow(beatNumInMeasure);
+    drawFrameCols_rainbowSineAll(beatNumInMeasure);
     return;
   }
   

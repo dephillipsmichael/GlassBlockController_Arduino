@@ -120,8 +120,9 @@ void initController_Beat() {
   beatCtrl->animationCount = 1;
 
   // Default animation
-  setAnimFunc_RainbowRow(&(beatCtrl->animations[0]));
-//  setAnimFunc_Tetris(&beatAnimations[0]);
+  //setAnimFunc_RainbowRow(&(beatCtrl->animations[0]));  
+  //setAnimFunc_Tetris(&beatAnimations[0]);
+  setAnimFunc_RainbowSine(&(beatCtrl->animations[0]));
 
   (beatCtrl->animations[0]).init();
 }
@@ -135,9 +136,32 @@ void destroyController_Beat() {
   beatCtrl = NULL;
 }
 
-void runLoopController_Beat() {
-  // No-op needed until I get RTC module for keeping time
-  // For now, BLE sends each beat
+uint16_t lastBeat = 0;
+uint16_t newBeat = 0;
+
+void runLoopController_Beat(unsigned long millisTime) {
+  
+  if (millisTime == 0) {
+    return;
+  }
+
+  if (beatCtrl == NULL) {
+    #ifdef BEAT_CONTROLLER_DEBUG
+      Serial.println(F("beat ctrlr not initialized"));
+    #endif
+    return;
+  }
+
+  // Calculate new divisional beat within a measure
+  newBeat = quantizeBeatWithinMeasureTruncate(
+    SixteenthBeat, beatCtrl->beatsInMeasure,
+    millisTime * 1000, beatCtrl->bpm, beatCtrl->bpmStartTimeMicros);
+
+  // If we proceeded to the next divisional beat, draw an LED frame
+  if (lastBeat != newBeat) {
+    lastBeat = newBeat;
+    processBeatNum(lastBeat);
+  }  
 }
 
 enum ControllerType controllerType_Beat();
@@ -156,10 +180,10 @@ void initBeatControllerVars() {
   beatCtrl->animations = NULL;
   beatCtrl->animationCount = 0;
   beatCtrl->bpm = 120;
-  beatCtrl->bpmStartTimeMicros = micros();
+  beatCtrl->bpmStartTimeMicros = 0;
   beatCtrl->bleDelayMicros = 0;
   beatCtrl->framesPerBeat = 24;
-  beatCtrl->beatsInMeasure = 96;
+  beatCtrl->beatsInMeasure = 4;
 }
 
 /**
@@ -172,7 +196,7 @@ void processBpmInfo(byte bpmInfoParams[], unsigned long now) {
 }
 
 void processBeatSequence(byte sequenceMsg[]) {
-  
+  return;
   byte animIdx = sequenceMsg[1];
   // Decode and attach to specified animation
   if (animIdx < beatCtrl->animationCount) {  // bounds check
@@ -188,8 +212,9 @@ void processBeatSequence(byte sequenceMsg[]) {
 
 void processBeatNum(uint16_t beatNumInMeasure) {
   #ifdef BEAT_CONTROLLER_DEBUG     
-    if (beatNumInMeasure == 0) {
-      Serial.println("Beat 0");   
+    if (beatNumInMeasure == 0 || beatNumInMeasure == 16 || beatNumInMeasure == 32 || beatNumInMeasure == 48) {
+      Serial.print("Beat ");   
+      Serial.println(beatNumInMeasure);   
     }
   #endif  
   

@@ -8,13 +8,13 @@
 */
 #include <ArduinoBLE.h>
 
-// #define BLE_DEBUG 1;
+#define BLE_DEBUG 1;
 
 // LED srevice for controlling the glass block wall
-BLEService ledService("6e400001-b5a3-f393-e0a9-e50e24dcca9e"); // create service
+BLEService ledService("6e400010-b5a3-f393-e0a9-e50e24dcca9e"); // create service
 
-// Receive bpm and timing info for syncing to music
-BLECharacteristic communicationChar =  BLECharacteristic("6e400005-b5a3-f393-e0a9-e50e24dcca9e", BLEWriteWithoutResponse, 20);
+// Receive all messaging from the BLE central device
+BLECharacteristic communicationChar =  BLECharacteristic("6e400007-b5a3-f393-e0a9-e50e24dcca9e", BLEWriteWithoutResponse, 20);
 
 // Beat measure characteristic data length
 const uint8_t beatMeasueDataLength = 20;
@@ -38,7 +38,7 @@ void blePeripheralConnectHandler(BLEDevice central);
 void blePeripheralDisconnectHandler(BLEDevice central);
 
 // Buffer to retrieve the next part of the beat sequence
-byte* beatSequenceVals = new byte[20];
+byte* beatSequenceVals = new byte[20] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 void setupBluetooth() {
   // begin initialization
@@ -57,16 +57,16 @@ void setupBluetooth() {
 
   // Assign event handlers for connected, disconnected to peripheral
   BLE.setEventHandler(BLEConnected, blePeripheralConnectHandler);
-  BLE.setEventHandler(BLEDisconnected, blePeripheralDisconnectHandler);
-  
-  // set the UUID for the service this peripheral advertises:
-  BLE.setAdvertisedService(ledService);
+  BLE.setEventHandler(BLEDisconnected, blePeripheralDisconnectHandler);     
 
-  // add the characteristics to the service
-  ledService.addCharacteristic(communicationChar);   
+  // add the characteristics to the service  
+  ledService.addCharacteristic(communicationChar); 
 
   // add the service
-  BLE.addService(ledService);
+  BLE.addService(ledService);    
+
+  // set the UUID for the service this peripheral advertises:
+  BLE.setAdvertisedService(ledService);
 
   // start advertising
   BLE.advertise();
@@ -74,10 +74,7 @@ void setupBluetooth() {
   Serial.println("Bluetooth device active, waiting for connections...");
 }
 
-unsigned long now = 0;
-boolean loopBluetooth() {  
-  
-  now = micros();
+boolean loopBluetooth() {   
    
   // This function on avg takes only
   // ~31 MICRO seconds to perform
@@ -88,7 +85,7 @@ boolean loopBluetooth() {
 
   // Check for a change in the communication characteristic
   if (communicationChar.written()) {
-
+        
     // This is a quick operations < 100 MICRO seconds
     communicationChar.readValue(beatSequenceVals, 20); 
 
@@ -101,57 +98,43 @@ boolean loopBluetooth() {
         }
       }    
       Serial.println();
-    #endif   
+    #endif  
 
-    switch (beatSequenceVals[0]) {
-      
-      case BLE_ARGB:              
-      
-        // Sending black will just control the global brightness
-        if (!(0 == beatSequenceVals[2] && 0 == beatSequenceVals[3] && 0 == beatSequenceVals[4])) {  
-          setControllerType(ControllerType_Color);
-          processRgbCommand(beatSequenceVals[2], beatSequenceVals[3], beatSequenceVals[4]);                   
-        } else {
-          #ifdef BLE_DEBUG
-            Serial.print("New global alpha ");
-            Serial.println(beatSequenceVals[1]);           
-          #endif      
-          // Make sure the brightness is relative to the max in this code
-          setGlobalBrightness(beatSequenceVals[1]);  
-        }        
-        
-        break;
+    processNewMessage();
+  }    
+}
 
-      case BLE_ANIMATION:
-
-        setControllerType(ControllerType_Animation);
-        processAnimParams(beatSequenceVals);
-      
-        break;
-
-      case BLE_START_BEAT_SEQ:
-      case BLE_APPEND_BEAT_SEQ:        
-        
-        setControllerType(ControllerType_Beat);
-        processBeatSequence(beatSequenceVals);
-
-        break;
-
-      case BLE_BEAT_TRACKING:
-
-        setControllerType(ControllerType_Beat);
-        processBeatNum((uint16_t)beatSequenceVals[1] + (uint16_t)beatSequenceVals[2]); 
-  
-        break;
-
-      case BLE_BPM_INFO:  
-    
-        setControllerType(ControllerType_Beat);
-        processBpmInfo(beatSequenceVals, now);
-        
-        break;
-    }          
-  } 
+void processNewMessage() {
+  if (beatSequenceVals[0] == 0) {
+    // Sending black will just control the global brightness
+    if (!(0 == beatSequenceVals[2] && 0 == beatSequenceVals[3] && 0 == beatSequenceVals[4])) {  
+      setControllerType(ControllerType_Color);
+      processRgbCommand(beatSequenceVals[2], beatSequenceVals[3], beatSequenceVals[4]);                   
+    } else {
+      #ifdef BLE_DEBUG
+        Serial.print("New global alpha ");
+        Serial.println(beatSequenceVals[1]);           
+      #endif      
+      // Make sure the brightness is relative to the max in this code
+      setGlobalBrightness(beatSequenceVals[1]);  
+    }   
+  } else if (beatSequenceVals[0] == 1) {
+    setControllerType(ControllerType_Animation);
+    processAnimParams(beatSequenceVals);
+  } else if (beatSequenceVals[0] == 2) {
+    setControllerType(ControllerType_Beat);
+    processBeatSequence(beatSequenceVals);
+  } else if (beatSequenceVals[0] == 3) {
+    setControllerType(ControllerType_Beat);
+    processBeatSequence(beatSequenceVals);
+  } else if (beatSequenceVals[0] == 4) {
+    setControllerType(ControllerType_Beat);
+    processBeatNum((uint16_t)beatSequenceVals[1] + (uint16_t)beatSequenceVals[2]); 
+  } else if (beatSequenceVals[0] == 5) {
+    setControllerType(ControllerType_Beat);
+    unsigned long millisNow = glassBlock_Millis();
+    processBpmInfo(beatSequenceVals, millisNow * 1000);
+  }
 }
 
 void blePeripheralConnectHandler(BLEDevice central) {
