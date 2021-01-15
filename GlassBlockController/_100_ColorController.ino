@@ -24,7 +24,7 @@ void destroyController_Color() {
   blue = white40;
 }
 
-void runLoopController_Color(unsigned long millisTime) {
+void runLoopController_Color() {
   if (needsWritten) {
     needsWritten = false;
     FastLED_FillSolid(red, green, blue);

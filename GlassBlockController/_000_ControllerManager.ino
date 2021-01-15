@@ -21,7 +21,7 @@ enum ControllerType {
  */
 typedef void (*InitFunc)();
 typedef void (*DestroyFunc)();
-typedef void (*RunLoopFunc)(unsigned long);
+typedef void (*RunLoopFunc)();
 typedef enum ControllerType (*ControllerTypeFunc)();
 
 struct Controller {
@@ -44,8 +44,8 @@ void setupControllerManager() {
 /**
  * Runs the selected controller loop
  */
-void loopControllerManager(unsigned long millisTime) {
-  controller.runLoop(millisTime);
+void loopControllerManager() {
+  controller.runLoop();
 }
 
 void setControllerType(enum ControllerType type);

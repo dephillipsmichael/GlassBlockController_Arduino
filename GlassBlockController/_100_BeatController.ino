@@ -2,9 +2,27 @@
   LED animation pattern functions and variables   
 */
 
+#include <Wire.h>
 #include <FastLED.h>
 
 #define BEAT_CONTROLLER_DEBUG 1
+
+/**
+ * Use I2C to get an accurate picture
+ * of the current millis()
+ */
+unsigned long lastMillis = 0;
+/**
+ * @return glassBlock_Millis from another Arduino board
+ */
+unsigned long glassBlock_Millis() {
+  refreshI2cTimeMillis();
+  return lastMillis;
+}
+
+unsigned long millisBuffer = 0;
+byte millisCtr = 0;
+unsigned long maxFrameTimeMillis = 0;
 
 struct BeatControllerVars {
   /**
@@ -112,6 +130,14 @@ void initController_Beat() {
     Serial.println(F("init beat ctrlr"));
   #endif
 
+  // join i2c bus for timestamp millis (address optional for master)
+  Wire.begin(); 
+  delay(500);
+
+  #ifdef BEAT_CONTROLLER_DEBUG
+    Serial.println(F("Wire begin"));
+  #endif  
+
   beatCtrl = malloc(sizeof(BeatControllerVars));
   initBeatControllerVars();
 
@@ -134,16 +160,18 @@ void destroyController_Beat() {
   free(beatCtrl->animations);
   free(beatCtrl);
   beatCtrl = NULL;
+
+  // End wire monitoring
+  Wire.end();
 }
 
 uint16_t lastBeat = 0;
 uint16_t newBeat = 0;
 
-void runLoopController_Beat(unsigned long millisTime) {
-  
-  if (millisTime == 0) {
-    return;
-  }
+unsigned long debugTimeDuration = 0;
+int debugTimeCtr = 0;
+
+void runLoopController_Beat() {
 
   if (beatCtrl == NULL) {
     #ifdef BEAT_CONTROLLER_DEBUG
@@ -152,10 +180,43 @@ void runLoopController_Beat(unsigned long millisTime) {
     return;
   }
 
+  if (beatCtrl->bpm == 0) {
+    // BPM needs set first
+    return;
+  }
+
+  #ifdef DEBUG_GLASS_BLOCK_CONTROLLER    
+    unsigned long before = lastMillis;  
+    refreshI2cTimeMillis();  
+    unsigned long diff = (lastMillis - before);    
+    debugTimeDuration += diff;
+    maxFrameTimeMillis = max(maxFrameTimeMillis, diff);
+    debugTimeCtr++;
+    if (debugTimeCtr > 100) {      
+      if (debugTimeDuration > 100) {
+        Serial.print((debugTimeDuration / 100L));
+        Serial.print(", ");
+        Serial.print(maxFrameTimeMillis);
+        Serial.println();
+      }           
+      maxFrameTimeMillis = 0;
+      debugTimeCtr = 0;
+      debugTimeDuration = 0;
+    }
+
+  #else
+
+    // Refresh the time in millis() from another Arduino
+    // or really any I2C compatible device.
+    // Takes approx. 600 microseconds
+    refreshI2cTimeMillis();  
+  
+  #endif  
+  
   // Calculate new divisional beat within a measure
   newBeat = quantizeBeatWithinMeasureTruncate(
     SixteenthBeat, beatCtrl->beatsInMeasure,
-    millisTime * 1000, beatCtrl->bpm, beatCtrl->bpmStartTimeMicros);
+    lastMillis * 1000, beatCtrl->bpm, beatCtrl->bpmStartTimeMicros);
 
   // If we proceeded to the next divisional beat, draw an LED frame
   if (lastBeat != newBeat) {
@@ -179,7 +240,7 @@ void assignController_Beat(struct Controller* controller) {
 void initBeatControllerVars() {
   beatCtrl->animations = NULL;
   beatCtrl->animationCount = 0;
-  beatCtrl->bpm = 120;
+  beatCtrl->bpm = 0;
   beatCtrl->bpmStartTimeMicros = 0;
   beatCtrl->bleDelayMicros = 0;
   beatCtrl->framesPerBeat = 24;
@@ -189,14 +250,14 @@ void initBeatControllerVars() {
 /**
  * Called by BLE manager to send BPM info params through to the controller
  */
-void processBpmInfo(byte bpmInfoParams[], unsigned long now) {
+void processBpmInfo(byte bpmInfoParams[]) {
+  refreshI2cTimeMillis();
   setBpmBeatsInMeasure(bpmInfoParams[1]);
-  setBpm(bpmInfoParams[2], now);
+  setBpm(bpmInfoParams[2], lastMillis * 1000);
   setBpmDelay(bpmInfoParams[3]);
 }
 
 void processBeatSequence(byte sequenceMsg[]) {
-  return;
   byte animIdx = sequenceMsg[1];
   // Decode and attach to specified animation
   if (animIdx < beatCtrl->animationCount) {  // bounds check
@@ -232,6 +293,10 @@ double stepForBpm() {
   return (20.0 * (beatCtrl->bpm / 200.0));
 }
 
+byte stepForBopmByte() {
+  return (byte)(((double)beatCtrl->bpm / 200.0) * 20);
+}
+
 /**
  * @return true if the beat controller is running, false otherwise
  */
@@ -246,10 +311,11 @@ boolean isBeatControllerRunning() {
  * @return true if the current beat num has a beat in a sequence
  */
 boolean isABeat(uint16_t beatNumInMeasure, struct BeatSequence* beats) {
+
   for (int i = 0; i < beats->sequenceSize; i++) {
     if (beatNumInMeasure == beats->sequence[i]) {
       #ifdef BEAT_CONTROLLER_DEBUG
-        Serial.print(i);        
+        Serial.print(beats->sequence[i]);        
         Serial.println(" beat found");       
       #endif
       return true;
@@ -277,4 +343,41 @@ int distanceToNextBeat(uint16_t beatNumInMeasure, struct BeatSequence beats) {
   // On last beat now, add distance to first beat
   int beatNumEnd = beatCtrl->beatsInMeasure * beatCtrl->framesPerBeat;
   return (beatNumEnd - beatNumInMeasure) + beats.sequence[0];
+}
+
+/**
+ * This function grabs an accurate millis() from 
+ * another Slave Arduino device.
+ * 
+ * The reasoning behind this is that
+ * using this Arduino's millis() function
+ * is inaccurate when using FastLED with WS2812B LEDs.
+ * As, FastLED.show() will stop system clock interupts.
+ * 
+ * Setting up another Arudino gives is 
+ */
+void refreshI2cTimeMillis() {
+  millisBuffer = 0;
+  millisCtr = 4;
+  
+  // Grabbing the time takes approximately 0.590 milliseconds
+  Wire.requestFrom(8, 4);    // request 4 bytes from slave device #8  
+  while (Wire.available()) { // slave may send less than requested
+    millisCtr--;  
+    byte readByte = Wire.read();
+    millisBuffer = millisBuffer | ((unsigned long)readByte << (8 * millisCtr));         
+  }   
+
+  // We read all 4 bytes 
+  if (millisCtr == 0) {
+    lastMillis = millisBuffer;
+  } else {
+    #ifdef DEBUG_GLASS_BLOCK_CONTROLLER
+      Serial.println("Error reading millis buffer");
+    #endif
+  }
+  
+  // Because grabbing the time takes approximately 0.590 milliseconds
+  // We would rather be slightly ahead for the beat analysis
+  lastMillis += 1;  
 }

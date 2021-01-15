@@ -29,7 +29,8 @@ enum BleCommand {
   BLE_START_BEAT_SEQ  = 2,
   BLE_APPEND_BEAT_SEQ = 3,
   BLE_BEAT_TRACKING   = 4,
-  BLE_BPM_INFO        = 5  
+  BLE_BPM_INFO        = 5,
+  BLE_BEAT_STRT       = 6  
 };
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
@@ -132,8 +133,9 @@ void processNewMessage() {
     processBeatNum((uint16_t)beatSequenceVals[1] + (uint16_t)beatSequenceVals[2]); 
   } else if (beatSequenceVals[0] == 5) {
     setControllerType(ControllerType_Beat);
-    unsigned long millisNow = glassBlock_Millis();
-    processBpmInfo(beatSequenceVals, millisNow * 1000);
+    processBpmInfo(beatSequenceVals);
+  } else if (beatSequenceVals[0] == 6) {
+    setControllerType(ControllerType_Beat);
   }
 }
 

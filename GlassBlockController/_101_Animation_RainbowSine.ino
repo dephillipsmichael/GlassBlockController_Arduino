@@ -30,6 +30,10 @@ struct RainbowSineParams {
   // each LED 7 diff from the last one
   uint8_t colorsInRainbow;
 
+  byte beatHue;
+  byte beatHueStep;
+  boolean beatReverseDirection = false;
+
   // The step width when drawing the rainbow
   double rainbowWidth;
   double rainbowStepWidth;
@@ -72,6 +76,10 @@ void initParams_RainbowSine() {
   params_RSStruct->rainbowWidth = 7.0;
   params_RSStruct->rainbowStepWidth = 2.0;
   params_RSStruct->targetRainbowStepWidth = 0.0;
+
+  params_RSStruct->beatHue = 0;
+  params_RSStruct->beatHueStep = 0;
+  params_RSStruct->beatReverseDirection = false;
 }
 
 /**
@@ -160,25 +168,44 @@ void setAnimFunc_RainbowSine(struct Animation* anim) {
  */
 void draw_RainbowSine(uint16_t beatNumInMeasure) { 
 
+  FastLED_FillSolid(40, 40, 40);  
+
   if (isBeatControllerRunning()) {
-    drawFrameCols_rainbowSineAll(beatNumInMeasure);
+    drawFrameCols_rainbowSineBeat(beatNumInMeasure);
     return;
   }
-  
-  drawFrameCols_rainbowSineAll(beatNumInMeasure);
-}
-
-
-/**
- * Draw all columns in all rows for basic step
- */
-void drawFrameCols_rainbowSineAll(uint16_t beatNumInMeasure) {
-
-  FastLED_FillSolid(40, 40, 40);
 
   // Starting hue values
   double hue = dynamicLinearInterp255(*interp_RainbowSine, beatNumInMeasure);
   double hueStep = params_RSStruct->rainbowWidth;
+  drawFrameCols_rainbowSineAll(beatNumInMeasure, hue, hueStep);
+}
+
+/**
+ * Draws the beat rainbow sine and changes speed/direction on beat
+ */
+void drawFrameCols_rainbowSineBeat(uint16_t beatNumInMeasure) {
+  if (isABeat(beatNumInMeasure, beats_RainbowSine) || params_RSStruct->beatHueStep == 0) {
+      params_RSStruct->beatReverseDirection = !params_RSStruct->beatReverseDirection;
+      if (params_RSStruct->beatReverseDirection) {
+        params_RSStruct->beatHueStep = stepForBopmByte();
+      } else {
+        params_RSStruct->beatHueStep = 2 * stepForBopmByte();
+      }
+    }
+    // Starting hue values
+    if (params_RSStruct->beatReverseDirection) {
+      params_RSStruct->beatHue += params_RSStruct->beatHueStep;
+    } else {
+      params_RSStruct->beatHue -= params_RSStruct->beatHueStep;
+    }
+    drawFrameCols_rainbowSineAll(beatNumInMeasure, params_RSStruct->beatHue, 7);
+}
+
+/**
+ * Draw all columns in all rows for basic step
+ */
+void drawFrameCols_rainbowSineAll(uint16_t beatNumInMeasure, double hue, double hueStep) {  
 
   // Starting step values
   int sidewaysStep = getColumnStep_RainbowSine();  
@@ -193,7 +220,6 @@ void drawFrameCols_rainbowSineAll(uint16_t beatNumInMeasure) {
   }
 
   while (col < endingCol) {
-
     // Draw next LED or Block, depending on pattern
     incramentHueAndDraw(&hue, hueStep, row, col);
     
