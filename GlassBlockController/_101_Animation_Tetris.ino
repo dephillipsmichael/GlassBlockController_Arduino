@@ -5,6 +5,7 @@
 #include <FastLED.h>
 
 // #define TETRIS_DEBUG 1
+// #define TETRIS_DEBUG_DRAWING 1
 
 struct TetrisVars {
   byte lightWhiteRgb;
@@ -15,10 +16,11 @@ struct TetrisVars {
   uint8_t unAssignedDropIdx;
   uint8_t rowDropIdx;
   uint8_t endingStateFlashCtr;
-  uint8_t beatsInMeausre9624ths;
   uint8_t blockDataSize; // = 11;
   uint8_t tetrisSize; // = 18;
   uint8_t blocks[18][11];
+  uint8_t animSpeed;
+  uint16_t animFrameIdx;
 };
 
 // Speed of the tetris animation
@@ -44,15 +46,18 @@ void init_Tetris() {
   tetris = malloc(sizeof(struct TetrisVars));
   beats_Tetris = malloc(sizeof(struct BeatSequence));
 
+  tetris->animFrameIdx = 0;
+  tetris->animSpeed = 48;  
+
   // Hue values of specified colors
-  byte lightWhiteRgb = 20;
+  tetris->lightWhiteRgb = 20;
 
   // The hue offsetCtr is a rotating offset
   // that can be used to cycle the tetris pieces colors
   // the hueOffsetItr is how quickly it changes
   tetris->useHueOffsetCtr = false;
   tetris->hueOffsetCtr = 0;
-  tetris->hueOffsetItr = 8; 
+  tetris->hueOffsetItr = 8;   
 
   // Used to track which piece we are on
   tetris->tetrisIdx = 0;
@@ -62,9 +67,6 @@ void init_Tetris() {
   
   // State of the ending animation
   tetris->endingStateFlashCtr = 0;
-  
-  // TODO: make this based on time signature
-  tetris->beatsInMeausre9624ths = 96; // we only send half in our case
 
   tetris->blockDataSize = 11;
   tetris->tetrisSize = 18;
@@ -109,11 +111,18 @@ void init_Tetris() {
  * Sets the default parameters for this animation
  */
 void params_Tetris(byte params[]) {
-  // No-op needed currently
-  #ifdef TETRIS_DEBUG
-    Serial.println("tetris params");
-    debugPrintBleParams(params, 20);
-  #endif
+  if (tetris == NULL) {
+    #ifdef TETRIS_DEBUG
+      Serial.println(F("Tetris Anim not initialized"));
+    #endif
+    return;
+  }
+
+  // Set whether each tetris piece should change color
+  tetris->useHueOffsetCtr = (params[2] >= 1);
+  
+  // Assign the new speed of how quickly we drop new frames
+  tetris->animSpeed = (((49 - params[3]) * 2) + 16) / 4;   
 }
 
 /**
@@ -174,7 +183,16 @@ void draw_Tetris(uint16_t beatNumInMeasure) {
     startNextPieceDrop = (tetris->rowDropIdx == tetris->unAssignedDropIdx) && 
       isABeat(nextBeatsInAdv, beats_Tetris);
   } else {  // Use basic animation timing, every 40 frames  
-    if (beatNumInMeasure % 40 == 0) {
+
+    // Scale frame-rate with speed
+    if (beatNumInMeasure % (tetris->animSpeed / 2) != 0) {      
+      return;
+    }
+    
+    tetris->animFrameIdx++;
+
+    // Use speed to determine when to drop the next piece
+    if ((tetris->animFrameIdx % tetris->animSpeed) == 0) {
       startNextPieceDrop = true;
     }
   }
@@ -185,18 +203,18 @@ void draw_Tetris(uint16_t beatNumInMeasure) {
   // Check if we should drop the next piece
   if (startNextPieceDrop) {
 
-    //#ifdef TETRIS_DEBUG
+    #ifdef TETRIS_DEBUG
       Serial.print(" Nxt Tetris.");
-    //#endif       
+    #endif       
 
     // Go to next tetris piece
     tetris->tetrisIdx++;
 
     // Check for ending state
     if ((tetris->tetrisIdx) >= (tetris->tetrisSize)) {
-      //#ifdef TETRIS_DEBUG
+      #ifdef TETRIS_DEBUG
         Serial.print(F(" Tetris strt end anim."));
-     // #endif          
+      #endif          
       // Start the animation
       tetris->endingStateFlashCtr = 1; 
       tetris->rowDropIdx = 0;         
@@ -213,6 +231,9 @@ void draw_Tetris(uint16_t beatNumInMeasure) {
 
     // Process ending state
     if (tetris->endingStateFlashCtr > 12) {
+      #ifdef TETRIS_DEBUG
+        Serial.print("End flash animation");
+      #endif 
       tetris->endingStateFlashCtr = 0;
       tetris->rowDropIdx = tetris->unAssignedDropIdx;
       tetris->tetrisIdx = 0; 
@@ -241,9 +262,9 @@ void draw_Tetris(uint16_t beatNumInMeasure) {
     tetris->hueOffsetCtr += tetris->hueOffsetItr;
   }
 
-  //#ifdef TETRIS_DEBUG
+  #ifdef TETRIS_DEBUG
       Serial.println();
-  //#endif    
+  #endif    
 }
 
 uint8_t calcNextTetrisPieceRows() {
@@ -251,7 +272,7 @@ uint8_t calcNextTetrisPieceRows() {
 }
 
 uint8_t calcNextBeatsInAdv(uint16_t beatNumInMeasure, uint8_t nextTetrisPieceRows) {
-  return (beatNumInMeasure + nextTetrisPieceRows) % tetris->beatsInMeausre9624ths; 
+  return (beatNumInMeasure + nextTetrisPieceRows) % beatFramesInMeasure(); 
 }
 
 /**
@@ -268,7 +289,7 @@ void drawTetrisBlink() {
       #ifdef TETRIS_DEBUG
         Serial.print(" Ending State OFF.");
       #endif  
-      // Make all pieces black
+      // Make all pieces loook lik the background
       FastLED_FillSolid(tetris->lightWhiteRgb, tetris->lightWhiteRgb, tetris->lightWhiteRgb);
     }    
 }
@@ -294,7 +315,7 @@ void drawTetrisPiece(uint8_t tetrisPiece[], uint8_t animRowIdx) {
     for (int col = tetrisPiece[1]; col < (tetrisPiece[1] + pieceWidth); col++) {
       if (row >= 0 && col >= 0 && 
           tetrisPiece[i + 5] == 1) {
-         #ifdef TETRIS_DEBUG
+         #ifdef TETRIS_DEBUG_DRAWING
           Serial.print(" (");
           Serial.print(row);
           Serial.print(",");

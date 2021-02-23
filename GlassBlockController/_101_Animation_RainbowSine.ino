@@ -17,7 +17,6 @@ enum RainbowSinePattern {
   RS_Pattern_Led        = 4
 };
 
-struct DynamicLinearInterpolation* interp_RainbowSine = NULL;
 struct BeatSequence* beats_RainbowSine = NULL;
 
 struct RainbowSineParams {
@@ -30,9 +29,9 @@ struct RainbowSineParams {
   // each LED 7 diff from the last one
   uint8_t colorsInRainbow;
 
-  byte beatHue;
-  byte beatHueStep;
-  boolean beatReverseDirection = false;
+  byte hue;
+  byte hueStep;
+  boolean reverseDirection = false;
 
   // The step width when drawing the rainbow
   double rainbowWidth;
@@ -45,9 +44,6 @@ struct RainbowSineParams* params_RSStruct = NULL;
  * Initialize memory required to run this animation
  */
 void init_RainbowSine() {  
-  interp_RainbowSine = malloc(sizeof(struct DynamicLinearInterpolation));  
-  initDynamicLinearInterpolation(interp_RainbowSine);
-
   params_RSStruct = malloc(sizeof(struct RainbowSineParams));
   initParams_RainbowSine();
   
@@ -57,12 +53,6 @@ void init_RainbowSine() {
 }
 
 void initParams_RainbowSine() {
-  // Start with default step and start
-  interp_RainbowSine->ogStart = 0.0;
-  interp_RainbowSine->ogStep = 2.0;
-  interp_RainbowSine->curVal = 0.0;
-  interp_RainbowSine->curStep = 2.0;
-  
   // Current Rainbow Row pattern
   params_RSStruct->pattern = RS_Pattern_Block;
   // Current Rainbow Row beat style
@@ -77,18 +67,15 @@ void initParams_RainbowSine() {
   params_RSStruct->rainbowStepWidth = 2.0;
   params_RSStruct->targetRainbowStepWidth = 0.0;
 
-  params_RSStruct->beatHue = 0;
-  params_RSStruct->beatHueStep = 0;
-  params_RSStruct->beatReverseDirection = false;
+  params_RSStruct->hue = 0;
+  params_RSStruct->hueStep = 0;
+  params_RSStruct->reverseDirection = false;
 }
 
 /**
  * Free up memory used by this animation
  */
 void free_RainbowSine() {
-  free(interp_RainbowSine);
-  interp_RainbowSine = NULL;
-  
   free(beats_RainbowSine->sequence);
   free(beats_RainbowSine);
   beats_RainbowSine = NULL;
@@ -120,9 +107,9 @@ void setupRainbowSinePattern(enum RainbowSinePattern newPattern) {
  * Sets the default parameters for this animation
  */
 void params_RainbowSine(byte params[]) {
-  if (interp_RainbowSine == NULL) {
+  if (params_RSStruct == NULL) {
     #ifdef DEBUG_RAINBOW_SINE
-      Serial.println("Interp not yet intialized");
+      Serial.println("params_RSStruct not yet intialized");
     #endif
     return;
   }
@@ -131,15 +118,11 @@ void params_RainbowSine(byte params[]) {
   setupRainbowSinePattern(params[2]);
 
   // Assign the new speed value to all rows
-  byte newCoeff = params[3] * 0.25;
+  double newCoeff = ((double)params[3] * 0.25) - 6.0;
   
   // Keep moving left or right parity
-  if (interp_RainbowSine->ogStep < 0) {
-    interp_RainbowSine->ogStep = -newCoeff;
-  } else {
-    interp_RainbowSine->ogStep = newCoeff;
-  }
-  interp_RainbowSine->curStep = interp_RainbowSine->ogStep;
+  params_RSStruct->reverseDirection = (newCoeff < 0);
+  params_RSStruct->hueStep = (byte)abs(round(newCoeff));
 }
 
 
@@ -168,38 +151,42 @@ void setAnimFunc_RainbowSine(struct Animation* anim) {
  */
 void draw_RainbowSine(uint16_t beatNumInMeasure) { 
 
-  FastLED_FillSolid(40, 40, 40);  
+  // Draw the background
+  if (params_RSStruct->pattern == RS_Pattern_Block_Gap1 ||
+      params_RSStruct->pattern == RS_Pattern_Block_Gap2 ||
+      params_RSStruct->pattern == RS_Pattern_Block_Gap3) {
 
-  if (isBeatControllerRunning()) {
-    drawFrameCols_rainbowSineBeat(beatNumInMeasure);
-    return;
+    FastLED_FillSolid(40, 40, 40); 
   }
 
-  // Starting hue values
-  double hue = dynamicLinearInterp255(*interp_RainbowSine, beatNumInMeasure);
+  // Incramenet animation
+  if (params_RSStruct->reverseDirection) {
+    params_RSStruct->hue += params_RSStruct->hueStep;
+  } else {
+    params_RSStruct->hue -= params_RSStruct->hueStep;
+  }
+
   double hueStep = params_RSStruct->rainbowWidth;
-  drawFrameCols_rainbowSineAll(beatNumInMeasure, hue, hueStep);
+
+  if (isBeatControllerRunning()) {
+    checkBeat_rainbowSineBeat(beatNumInMeasure);
+  }
+
+  drawFrameCols_rainbowSineAll(beatNumInMeasure, params_RSStruct->hue, hueStep);
 }
 
 /**
  * Draws the beat rainbow sine and changes speed/direction on beat
  */
-void drawFrameCols_rainbowSineBeat(uint16_t beatNumInMeasure) {
-  if (isABeat(beatNumInMeasure, beats_RainbowSine) || params_RSStruct->beatHueStep == 0) {
-      params_RSStruct->beatReverseDirection = !params_RSStruct->beatReverseDirection;
-      if (params_RSStruct->beatReverseDirection) {
-        params_RSStruct->beatHueStep = stepForBopmByte();
+void checkBeat_rainbowSineBeat(uint16_t beatNumInMeasure) {
+  if (isABeat(beatNumInMeasure, beats_RainbowSine) || params_RSStruct->hueStep == 0) {
+      params_RSStruct->reverseDirection = !params_RSStruct->reverseDirection;
+      if (params_RSStruct->reverseDirection) {
+        params_RSStruct->hueStep = stepForBopmByte();
       } else {
-        params_RSStruct->beatHueStep = 2 * stepForBopmByte();
+        params_RSStruct->hueStep = 2 * stepForBopmByte();
       }
-    }
-    // Starting hue values
-    if (params_RSStruct->beatReverseDirection) {
-      params_RSStruct->beatHue += params_RSStruct->beatHueStep;
-    } else {
-      params_RSStruct->beatHue -= params_RSStruct->beatHueStep;
-    }
-    drawFrameCols_rainbowSineAll(beatNumInMeasure, params_RSStruct->beatHue, 7);
+    }    
 }
 
 /**

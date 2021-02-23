@@ -148,7 +148,8 @@ void initController_Beat() {
   // Default animation
   //setAnimFunc_RainbowRow(&(beatCtrl->animations[0]));  
   //setAnimFunc_Tetris(&beatAnimations[0]);
-  setAnimFunc_RainbowSine(&(beatCtrl->animations[0]));
+  //setAnimFunc_RainbowSine(&(beatCtrl->animations[0]));
+  setAnimFunc_SimpleFade(&(beatCtrl->animations[0]));
 
   (beatCtrl->animations[0]).init();
 }
@@ -243,7 +244,7 @@ void initBeatControllerVars() {
   beatCtrl->bpm = 0;
   beatCtrl->bpmStartTimeMicros = 0;
   beatCtrl->bleDelayMicros = 0;
-  beatCtrl->framesPerBeat = 24;
+  beatCtrl->framesPerBeat = 16;
   beatCtrl->beatsInMeasure = 4;
 }
 
@@ -341,8 +342,12 @@ int distanceToNextBeat(uint16_t beatNumInMeasure, struct BeatSequence beats) {
   } 
   
   // On last beat now, add distance to first beat
-  int beatNumEnd = beatCtrl->beatsInMeasure * beatCtrl->framesPerBeat;
+  int beatNumEnd = beatFramesInMeasure();
   return (beatNumEnd - beatNumInMeasure) + beats.sequence[0];
+}
+
+uint16_t beatFramesInMeasure() {
+  return beatCtrl->beatsInMeasure * beatCtrl->framesPerBeat;
 }
 
 /**

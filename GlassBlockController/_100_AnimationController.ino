@@ -33,10 +33,14 @@ void initController_Animation() {
   // Create animation size of 1
   animations = malloc(sizeof(Animation) * 1);
   animationCount = 1;
-
-  // Default to RainbowRow animation
-  setAnimFunc_RainbowRow(&animations[0]);
+  
+  // Default to SimpleFade animation
+  setAnimFunc_SimpleFade(&animations[0]);
   animations[0].init();
+
+  #ifdef ANIMATION_DEBUG
+    Serial.println("Initialized animation controller");
+  #endif
 }
 
 /**

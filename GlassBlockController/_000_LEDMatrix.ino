@@ -159,6 +159,11 @@ uint16_t to_led_idx(uint16_t led_row, uint16_t led_col) {
   return result;
 }
 
+void FastLED_Rainbow(byte initialHue) {
+  // FastLED's built-in rainbow generator
+  fill_rainbow( leds, NUM_LEDS, initialHue, 7);
+}
+
 void FastLED_FillSolid(byte r, byte g, byte b) {
   fill_solid(leds, NUM_LEDS, CRGB(r, g, b));
 }

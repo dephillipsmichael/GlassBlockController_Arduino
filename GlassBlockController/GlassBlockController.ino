@@ -31,7 +31,7 @@ void setup() {
 }
 
 void loop() {  
-  // Check for run loops on active controller
+  // Check for run loops on active controller  
   loopControllerManager();   
 
   // Check for BLE messages

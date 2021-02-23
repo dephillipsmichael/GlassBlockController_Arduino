@@ -18,12 +18,12 @@ BeatSequence* getBeatBc() {
 
 void anim_BeatCheck(uint16_t beatNumInMeasure) {
   uint16_t beatNumScaled = beatNumInMeasure;
-  if (beatNumScaled >= 96) {
+  if (beatNumScaled >= (16 * 4)) {
     beatNumScaled = beatNumScaled / 4;
   }
   
   FastLED_SetRGB(to_led_idx(lastRow, lastCol), 0, 0, 0);
-  double beatsThroughMeasure = ((double)beatNumScaled / 24.0);
+  double beatsThroughMeasure = ((double)beatNumScaled / 16.0);
   row = (byte)beatsThroughMeasure;
   col = round((beatsThroughMeasure - row) * rowLedCount) + 17;
   FastLED_SetRGB(to_led_idx(row, (byte)col), 132, 222, 2);

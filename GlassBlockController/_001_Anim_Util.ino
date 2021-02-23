@@ -4,8 +4,10 @@
 enum AnimType {
   AnimType_RainbowRow  = 0,
   AnimType_RainbowSine = 1,
-  AnimType_Squares     = 2,
-  AnimType_Tetris      = 3
+  AnimType_Tetris      = 2,
+  AnimType_SimpleFade  = 3,
+  AnimType_Rainbow     = 4,
+  AnimType_Squares     = 5 
 };
 
 /**
@@ -159,6 +161,15 @@ void assignAnimationType(enum AnimType type, struct Animation* anim) {
       break;
     case AnimType_RainbowSine:
       setAnimFunc_RainbowSine(anim);
+      break;
+    case AnimType_Tetris:
+      setAnimFunc_Tetris(anim);
+      break;
+    case AnimType_SimpleFade:
+      setAnimFunc_SimpleFade(anim);
+      break;
+    case AnimType_Rainbow:
+      setAnimFunc_RainbowAnim(anim);
       break;
   }
 }

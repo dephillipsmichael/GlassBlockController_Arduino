@@ -76,15 +76,24 @@ void params_RainbowRow(byte params[]) {
   setupRainbowRowPattern(params[2]);
 
   // Assign the new speed value to all rows
-  byte newCoeff = params[3] * 0.25;
+  double newCoeff = (params[3] * 0.5) - 12.0;
   for (int i = 0; i < ledsRowCount; i++) {
     // Keep moving left or right parity
-    if (interp_RainbowRow[i].ogStep < 0) {
-      interp_RainbowRow[i].ogStep = -newCoeff;
-    } else {
-      interp_RainbowRow[i].ogStep = newCoeff;
+    interp_RainbowRow[i].ogStep = newCoeff;  
+    if (params[2] == Pattern_EqualOpp &&
+        i % 2 == 0) {
+      Serial.print(F(" Opp "));
+      interp_RainbowRow[i].ogStep = -newCoeff;      
     }
   }
+
+  #ifdef ANIMATION_RAINBOW_ROW_DEBUG
+    Serial.print(F("New speed "));
+    Serial.print(newCoeff);
+    Serial.print(F(" New pattern "));
+    Serial.print(params[2]);
+    Serial.println();
+  #endif
 }
 
 /**
@@ -201,6 +210,13 @@ void setAnimFunc_RainbowRow(struct Animation* anim) {
  */
 void draw_RainbowRow(uint16_t beatNumInMeasure) {
 
+  // WARNING: 
+  //
+  // The drawBeats_RainbowRow code takes about
+  // 50 milliseconds to perform.
+  // That means that beat detection,
+  // These won't be very accurate, and BLE messages will be,
+  // delayed significantly when sending a BPM info command
   if (isBeatControllerRunning()) {
     drawBeats_RainbowRow(beatNumInMeasure);
     return;
@@ -213,14 +229,11 @@ void draw_RainbowRow(uint16_t beatNumInMeasure) {
  * Draw all columns in all rows for basic step
  */
 void drawFrameCols_rainbowRowAll(uint16_t beatNumInMeasure) {
-  // Draw rinabow rows
+  // Draw rainbow rows
   for (int row = 0; row < ledsRowCount; row++) {
-    double hue = dynamicLinearInterp255(interp_RainbowRow[row], beatNumInMeasure);
-    double hueStep = params_RRStruct->colorsInRainbow;
-    if (params_RRStruct->pattern != Pattern_EqualOpp) {
-      hueStep = interp_RainbowRow[row].ogStep;
-    }
-    drawFrameCols_rainbowRow(row, hue, hueStep);
+    byte hue = dynamicLinearInterp255(interp_RainbowRow[row], beatNumInMeasure);
+    byte hueStep = abs(interp_RainbowRow[row].ogStep);
+    drawFrameCols_rainbowRow(row, (double)hue, (double)hueStep);
   }
 }
 
@@ -228,11 +241,6 @@ void drawFrameCols_rainbowRowAll(uint16_t beatNumInMeasure) {
  * Calculate next frame and draw to LEDs synced to BPM
  */
 void drawBeats_RainbowRow(uint16_t beatNumInMeasure) {
-
-  // Try ramp up to beat?
-//  if (distanceToNextBeat(beatNumInMeasure, &beats_RainbowRow) == 12) {
-//
-//  }
 
   // On beats, find a new target animation val
   if (isABeat(beatNumInMeasure, beats_RainbowRow)) {
@@ -276,6 +284,6 @@ void drawBeats_RainbowRow(uint16_t beatNumInMeasure) {
  */
 void drawFrameCols_rainbowRow(int row, double hue, double stepHue) {
   for (int col = 0; col < ledsPerRow; col++) {
-    FastLED_SetHue(to_led_idx(row, col), random(0, 255));//to_led_idx(row, col), interpTo255(hue + (col * stepHue)));
+    FastLED_SetHue(to_led_idx(row, col), interpTo255(hue + (col * stepHue)));
   }
 }
